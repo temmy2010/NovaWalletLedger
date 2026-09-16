@@ -1,14 +1,15 @@
+namespace NovaWallet.Api.Controllers;
+
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaWallet.Application.DTOs;
 using NovaWallet.Application.Interfaces;
 
-namespace NovaWallet.Api.Controllers;
-
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
+[Tags("2. Wallets")]
 public class WalletsController : ControllerBase
 {
     private readonly IWalletService _walletService;

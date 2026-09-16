@@ -1,3 +1,5 @@
+namespace NovaWallet.Api.Controllers;
+
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -5,12 +7,11 @@ using Microsoft.AspNetCore.RateLimiting;
 using NovaWallet.Application.DTOs;
 using NovaWallet.Application.Interfaces;
 
-namespace NovaWallet.Api.Controllers;
-
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
 [EnableRateLimiting("transfer_policy")]
+[Tags("3. Transfers")]
 public class TransfersController : ControllerBase
 {
     private readonly ITransferService _transferService;
@@ -28,9 +29,6 @@ public class TransfersController : ControllerBase
     /// Moves funds atomically from one wallet to another.
     /// Concurrency-safe, deadlock-free, strictly non-negative, and supports Idempotency-Key header.
     /// </summary>
-    /// <param name="request">Transfer details (source, destination, amount in kobo)</param>
-    /// <param name="idempotencyKey">Unique key preventing duplicate processing</param>
-    /// <param name="cancellationToken">Cancellation token</param>
     [HttpPost]
     [ProducesResponseType(typeof(TransferResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

@@ -1,3 +1,5 @@
+namespace NovaWallet.Api.Controllers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -5,11 +7,10 @@ using NovaWallet.Application.Common.Interfaces;
 using NovaWallet.Application.DTOs;
 using NovaWallet.Domain.Exceptions;
 
-namespace NovaWallet.Api.Controllers;
-
 [ApiController]
 [Route("api/wallets/{id:guid}/audit-logs")]
 [Authorize]
+[Tags("5. Audit Logs")]
 public class AuditLogsController : ControllerBase
 {
     private readonly IApplicationDbContext _dbContext;

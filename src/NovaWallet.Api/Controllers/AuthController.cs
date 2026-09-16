@@ -1,11 +1,12 @@
+namespace NovaWallet.Api.Controllers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaWallet.Application.Common.Interfaces;
 
-namespace NovaWallet.Api.Controllers;
-
 [ApiController]
 [Route("api/[controller]")]
+[Tags("1. Authentication")]
 public class AuthController : ControllerBase
 {
     private readonly IJwtTokenService _jwtTokenService;
@@ -23,7 +24,7 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GenerateToken([FromBody] TokenRequest request)
     {
-        var customerId = string.IsNullOrWhiteSpace(request.CustomerId) ? "CUST-DEFAULT-001" : request.CustomerId;
+        var customerId = string.IsNullOrWhiteSpace(request.CustomerId) ? "CUST-FIRSTBANK-001" : request.CustomerId;
         var role = string.IsNullOrWhiteSpace(request.Role) ? "Customer" : request.Role;
 
         var token = _jwtTokenService.GenerateToken(customerId, role);

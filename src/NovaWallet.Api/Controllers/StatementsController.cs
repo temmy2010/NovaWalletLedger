@@ -1,13 +1,14 @@
+namespace NovaWallet.Api.Controllers;
+
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaWallet.Application.DTOs;
 using NovaWallet.Application.Interfaces;
 
-namespace NovaWallet.Api.Controllers;
-
 [ApiController]
 [Route("api/wallets/{id:guid}/statement")]
 [Authorize]
+[Tags("4. Statements")]
 public class StatementsController : ControllerBase
 {
     private readonly IStatementService _statementService;
