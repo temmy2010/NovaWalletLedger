@@ -107,19 +107,21 @@
 
 ---
 
-## Slide 8: Single-Command Deployment & Conclusion (9:00 - 10:00)
-- **Deployment**:
-  - Single command startup: `docker compose up --build`.
-  - Spins up PostgreSQL database and .NET 9 API with migrations and demo wallets pre-seeded.
-  - Swagger UI accessible at `http://localhost:8080/swagger`.
+## Slide 8: Deployment, Multi-Database Support & Conclusion (9:00 - 10:00)
+- **Flexible Database Architecture**:
+  - **Docker / Production**: Single-command startup (`docker compose up`) orchestrating the .NET 9 API and PostgreSQL 16 container.
+  - **Local Development**: Frictionless zero-setup via SQLite, plus full native support for **Microsoft SQL Server** via EF Core.
+  - **Pre-Seeded Demo Accounts**: `CUST-FIRSTBANK-001` (₦100,000) and `CUST-FIRSTBANK-002` (₦50,000) for instant Swagger testing.
+  - **Interactive Swagger UI**: Reachable at `http://localhost:8080/swagger`.
 - **Key Takeaways**:
-  - Clean, readable, modular architecture.
-  - Complete coverage of all hard constraints and stretch goals.
-  - Production-ready for FirstBank NovaPay.
+  - 100% Kobo Integer Standard & Zero Float Drift.
+  - Concurrency-safe, deadlock-free P2P transfers.
+  - Stateful Idempotency and WAT midnight daily limits.
+  - Append-only immutable audit trail and Transactional Outbox pattern.
 
 ### Speaker Script (Slide 8)
-> *"The entire service and its PostgreSQL datastore boot with a single command: `docker compose up`. Pre-seeded demo accounts and full Swagger documentation are immediately available for the panel to test.  
-> In summary, this service delivers absolute correctness, high concurrency safety, complete auditability, and clean maintainable code. Thank you, and I welcome any questions or live code walk-throughs from the panel."*
+> *"For deployment, the entire service and its PostgreSQL datastore boot with a single command: `docker compose up`. For local development, it defaults to a zero-configuration SQLite database so anyone can clone and run it instantly, while fully supporting Microsoft SQL Server simply by updating the connection string in `appsettings.json`.  
+> Pre-seeded demo accounts and full Swagger documentation are immediately ready for testing. In summary, this service delivers absolute financial correctness, high concurrency safety, complete auditability, and clean maintainable code. Thank you, and I welcome any questions or live code walk-throughs from the panel."*
 
 ---
 
@@ -133,3 +135,6 @@
 
 ### Q3: How do you handle timezone transitions for the WAT daily limit?
 > **Answer**: *"West Africa Time (WAT) has a fixed UTC+1 offset and does not observe Daylight Saving Time. We calculate the UTC boundary for WAT midnight (`00:00:00 WAT` = `23:00:00 UTC` previous day) using our `IDateTimeProvider`. This ensures every transaction's UTC timestamp is accurately aggregated against the Nigerian banking day."*
+
+### Q4: Which databases does this service support and how is it configured?
+> **Answer**: *"The service is provider-agnostic via Entity Framework Core. When running containerized via `docker compose up`, it connects to PostgreSQL 16. For local testing, it defaults to a zero-setup SQLite database file (`novawallet.db`), and it natively supports Microsoft SQL Server (LocalDB or SQL Server Express) simply by changing the `DefaultConnection` string in `appsettings.json`."*
