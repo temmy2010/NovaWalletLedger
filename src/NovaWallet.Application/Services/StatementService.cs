@@ -18,9 +18,7 @@ public class StatementService : IStatementService
 
     public async Task<StatementResponse> GetStatementAsync(Guid walletId, StatementQuery query, CancellationToken cancellationToken = default)
     {
-        bool walletExists = await _dbContext.Wallets
-            .AsNoTracking()
-            .AnyAsync(w => w.Id == walletId, cancellationToken);
+        bool walletExists = await _dbContext.Wallets.AsNoTracking().AnyAsync(w => w.Id == walletId, cancellationToken);
 
         if (!walletExists)
         {
@@ -30,9 +28,7 @@ public class StatementService : IStatementService
         int pageNumber = query.PageNumber < 1 ? 1 : query.PageNumber;
         int pageSize = (query.PageSize < 1 || query.PageSize > 100) ? 20 : query.PageSize;
 
-        IQueryable<Transaction> baseQuery = _dbContext.Transactions
-            .AsNoTracking()
-            .Where(t => t.WalletId == walletId);
+        IQueryable<Transaction> baseQuery = _dbContext.Transactions.AsNoTracking().Where(t => t.WalletId == walletId);
 
         if (query.FromDateUtc.HasValue)
         {

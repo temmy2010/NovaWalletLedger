@@ -65,9 +65,7 @@ public class WalletService : IWalletService
 
     public async Task<BalanceResponse> GetBalanceAsync(Guid walletId, CancellationToken cancellationToken = default)
     {
-        Wallet? wallet = await _dbContext.Wallets
-            .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken);
+        Wallet? wallet = await _dbContext.Wallets.AsNoTracking().FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken);
 
         if (wallet == null)
         {
@@ -85,12 +83,7 @@ public class WalletService : IWalletService
         };
     }
 
-    public async Task<CreditWalletResponse> CreditWalletAsync(
-        Guid walletId,
-        CreditWalletRequest request,
-        string? correlationId = null,
-        string? performedBy = null,
-        CancellationToken cancellationToken = default)
+    public async Task<CreditWalletResponse> CreditWalletAsync(Guid walletId, CreditWalletRequest request, string? correlationId = null, string? performedBy = null, CancellationToken cancellationToken = default)
     {
         if (request.AmountKobo <= 0)
         {
@@ -115,9 +108,7 @@ public class WalletService : IWalletService
         wallet.UpdatedAtUtc = _clock.UtcNow;
         long postBalance = wallet.BalanceKobo;
 
-        string reference = string.IsNullOrWhiteSpace(request.Reference)
-            ? $"NIP-DEP-{Guid.NewGuid():N}"
-            : request.Reference.Trim();
+        string reference = string.IsNullOrWhiteSpace(request.Reference) ? $"NIP-DEP-{Guid.NewGuid():N}" : request.Reference.Trim();
 
         var txn = new Transaction
         {

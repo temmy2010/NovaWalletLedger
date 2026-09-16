@@ -30,12 +30,7 @@ public class TransferService : ITransferService
         _logger = logger;
     }
 
-    public async Task<TransferResponse> TransferFundsAsync(
-        TransferRequest request,
-        string? idempotencyKey = null,
-        string? correlationId = null,
-        string? performedBy = null,
-        CancellationToken cancellationToken = default)
+    public async Task<TransferResponse> TransferFundsAsync(TransferRequest request, string? idempotencyKey = null, string? correlationId = null, string? performedBy = null, CancellationToken cancellationToken = default)
     {
         if (request.SourceWalletId == request.DestinationWalletId)
         {
@@ -47,14 +42,13 @@ public class TransferService : ITransferService
             throw new InvalidAmountException(request.AmountKobo);
         }
 
-        // 1. Check Idempotency Key
+        // Check Idempotency Key
         string? payloadHash = null;
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
             payloadHash = HashRequestPayload(request);
 
-            IdempotencyRecord? existingRecord = await _dbContext.IdempotencyRecords
-                .AsNoTracking()
+            IdempotencyRecord? existingRecord = await _dbContext.IdempotencyRecords.AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Key == idempotencyKey, cancellationToken);
 
             if (existingRecord != null)
@@ -74,14 +68,10 @@ public class TransferService : ITransferService
             }
         }
 
-        // 2. Deadlock Prevention: Sort wallet IDs before locking rows
-        Guid lockFirstId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
-            ? request.SourceWalletId
-            : request.DestinationWalletId;
+        // Deadlock Prevention: Sort wallet IDs before locking rows
+        Guid lockFirstId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0 ? request.SourceWalletId : request.DestinationWalletId;
 
-        Guid lockSecondId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
-            ? request.DestinationWalletId
-            : request.SourceWalletId;
+        Guid lockSecondId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0 ? request.DestinationWalletId : request.SourceWalletId;
 
         await using IDbTransactionScope transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
 
@@ -115,7 +105,7 @@ public class TransferService : ITransferService
             throw new InsufficientFundsException(source.Id, request.AmountKobo, source.BalanceKobo);
         }
 
-        // 3. Daily Limit Check (WAT Midnight Reset)
+        // Daily Limit Check (WAT Midnight Reset)
         DateTime watDayStartUtc = _clock.GetWatMidnightTodayUtc();
         long spentTodayKobo = await _dbContext.Transactions
             .Where(t => t.WalletId == source.Id &&
@@ -132,7 +122,7 @@ public class TransferService : ITransferService
             throw new DailyLimitExceededException(source.Id, request.AmountKobo, spentTodayKobo, MaxDailyTransferKobo);
         }
 
-        // 4. Atomic Balance Updates
+        // Atomic Balance Updates
         long sourcePreBalance = source.BalanceKobo;
         long destPreBalance = destination.BalanceKobo;
 
@@ -149,7 +139,7 @@ public class TransferService : ITransferService
             ? $"TRF-{Guid.NewGuid():N}"
             : request.Reference.Trim();
 
-        // 5. Ledger Transactions
+        // Ledger Transactions
         var debitTransaction = new Transaction
         {
             Id = Guid.NewGuid(),
@@ -182,7 +172,7 @@ public class TransferService : ITransferService
 
         _dbContext.Transactions.AddRange(debitTransaction, creditTransaction);
 
-        // 6. Immutable Audit Trail
+        // Immutable Audit Trail
         var debitAudit = new AuditLog
         {
             Id = Guid.NewGuid(),

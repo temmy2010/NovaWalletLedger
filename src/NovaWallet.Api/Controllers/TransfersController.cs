@@ -38,12 +38,7 @@ public class TransfersController : ControllerBase
         var correlationId = HttpContext.Items.TryGetValue("X-Correlation-Id", out var cid) ? cid?.ToString() : null;
         var performedBy = User.Identity?.Name ?? "API_USER";
 
-        var result = await _transferService.TransferFundsAsync(
-            request,
-            idempotencyKey,
-            correlationId,
-            performedBy,
-            cancellationToken);
+        var result = await _transferService.TransferFundsAsync(request, idempotencyKey, correlationId, performedBy, cancellationToken);
 
         return Ok(result);
     }
