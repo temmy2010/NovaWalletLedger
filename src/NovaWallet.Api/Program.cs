@@ -51,18 +51,7 @@ builder.Services.AddSwaggerGen(options =>
     options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "NovaWallet Ledger Service API",
-        Version = "v1",
-        Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.\n\n" +
-                      "- Monetary amounts in integer Kobo (1 Naira = 100 Kobo).\n" +
-                      "- Concurrency-safe, deadlock-free P2P transfers.\n" +
-                      "- Idempotency-Key support with SHA-256 payload verification.\n" +
-                      "- Server-side daily limit (₦500,000/day reset at midnight WAT).\n" +
-                      "- Append-only immutable audit trail and Transactional Outbox pattern.",
-        Contact = new OpenApiContact
-        {
-            Name = "FirstBank Digital Factory - NovaPay Engineering",
-            Url = new Uri("https://www.firstbanknigeria.com")
-        }
+        Version = "v1"
     });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
