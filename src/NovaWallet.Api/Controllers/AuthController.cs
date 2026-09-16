@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
         {
             AccessToken = token,
             TokenType = "Bearer",
-            ExpiresInSeconds = 3600,
+            ExpiresInSeconds = _jwtTokenService.ExpirySeconds,
             CustomerId = customerId,
             Role = role
         };

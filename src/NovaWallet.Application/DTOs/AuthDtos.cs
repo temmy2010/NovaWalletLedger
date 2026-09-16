@@ -10,7 +10,7 @@ public class TokenResponse
 {
     public string AccessToken { get; set; } = string.Empty;
     public string TokenType { get; set; } = "Bearer";
-    public int ExpiresInSeconds { get; set; } = 3600;
+    public int ExpiresInSeconds { get; set; }
     public string CustomerId { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
 }

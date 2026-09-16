@@ -14,6 +14,8 @@ public class JwtTokenService : IJwtTokenService
     private readonly string _audience;
     private readonly int _expiryMinutes;
 
+    public int ExpirySeconds => _expiryMinutes * 60;
+
     public JwtTokenService(IConfiguration configuration)
     {
         _secretKey = configuration["Jwt:SecretKey"] ?? "NovaWalletSecretKeyMustBeAtLeast32BytesLong!";
