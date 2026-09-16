@@ -213,7 +213,7 @@ public class TransferService : ITransferService
 
         _dbContext.AuditLogs.AddRange(debitAudit, creditAudit);
 
-        // 7. Transactional Outbox Pattern
+        // Transactional Outbox Pattern
         string eventPayload = JsonSerializer.Serialize(new
         {
             EventId = Guid.NewGuid(),
@@ -249,7 +249,7 @@ public class TransferService : ITransferService
             CompletedAtUtc = debitTransaction.CreatedAtUtc
         };
 
-        // 8. Persist Idempotency Record
+        // Persist Idempotency Record
         if (!string.IsNullOrWhiteSpace(idempotencyKey) && payloadHash != null)
         {
             string responseJson = JsonSerializer.Serialize(response);

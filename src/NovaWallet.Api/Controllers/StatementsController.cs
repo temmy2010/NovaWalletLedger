@@ -21,10 +21,7 @@ public class StatementsController : ControllerBase
     /// Returns paginated transaction history for a wallet, sorted newest first.
     /// </summary>
     [HttpGet]
-    public async Task<IActionResult> GetStatement(
-        Guid id,
-        [FromQuery] StatementQuery query,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> GetStatement(Guid id, [FromQuery] StatementQuery query, CancellationToken cancellationToken)
     {
         var result = await _statementService.GetStatementAsync(id, query, cancellationToken);
         return Ok(result);
