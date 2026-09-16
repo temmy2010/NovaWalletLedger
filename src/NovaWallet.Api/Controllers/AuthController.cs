@@ -1,5 +1,6 @@
 namespace NovaWallet.Api.Controllers;
 
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaWallet.Application.Common.Interfaces;
@@ -31,7 +32,7 @@ public class AuthController : ControllerBase
         var response = new TokenResponse
         {
             AccessToken = token,
-            TokenType = "Bearer",
+            TokenType = JwtBearerDefaults.AuthenticationScheme,
             ExpiresInSeconds = _jwtTokenService.ExpirySeconds,
             CustomerId = customerId,
             Role = role
