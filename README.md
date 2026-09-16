@@ -150,9 +150,15 @@ cd NovaWalletLedger
 # Restore and build
 dotnet build
 
-# Run API (uses SQLite by default for instant local execution)
+# Run API (defaults to local SQLite 'novawallet.db' with zero setup)
 dotnet run --project src/NovaWallet.Api
 ```
+
+#### Database Provider Configuration (`appsettings.json`)
+The application automatically selects the database provider based on your `ConnectionStrings:DefaultConnection`:
+- **SQLite (Default local zero-setup)**: `"Data Source=novawallet.db"`
+- **Microsoft SQL Server (LocalDB / SQL Express / Azure SQL)**: `"Server=(localdb)\\mssqllocaldb;Database=NovaWalletDb;Trusted_Connection=True;TrustServerCertificate=True"`
+- **PostgreSQL (Docker)**: `"Host=localhost;Port=5432;Database=novawallet_db;Username=postgres;Password=YourPassword123!"`
 
 ---
 
