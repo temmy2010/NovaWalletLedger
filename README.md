@@ -278,12 +278,3 @@ All errors return standard `application/problem+json`:
   "correlationId": "trace-client-001"
 }
 ```
-
----
-
-## 10. Summary for the Interview Panel
-
-This service is production-ready, clean, easy to defend, and adheres to the highest standards of financial software engineering:
-1. **Never miscounts**: Pure 64-bit integer arithmetic in kobo.
-2. **Never loses or duplicates**: Sorted row-level locks, DB `CHECK` constraints, and transactional idempotency.
-3. **Fully auditable & observable**: Append-only audit trail, transactional outbox domain events, structured logs with trace IDs, and health probes.
