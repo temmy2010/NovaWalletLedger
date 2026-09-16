@@ -1,11 +1,12 @@
+﻿.vs/
+.vscode/
+.idea/
 bin/
 obj/
 *.user
 *.suo
 *.userosscache
 *.sln.docstates
-.idea/
-.vscode/
 *.db
 *.db-shm
 *.db-wal
