@@ -3,6 +3,7 @@ namespace NovaWallet.Api.Controllers;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using NovaWallet.Application.Common.Interfaces;
+using NovaWallet.Application.DTOs;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -38,19 +39,4 @@ public class AuthController : ControllerBase
 
         return Ok(response);
     }
-}
-
-public class TokenRequest
-{
-    public string? CustomerId { get; set; }
-    public string? Role { get; set; }
-}
-
-public class TokenResponse
-{
-    public string AccessToken { get; set; } = string.Empty;
-    public string TokenType { get; set; } = "Bearer";
-    public int ExpiresInSeconds { get; set; } = 3600;
-    public string CustomerId { get; set; } = string.Empty;
-    public string Role { get; set; } = string.Empty;
 }
