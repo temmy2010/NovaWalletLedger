@@ -37,32 +37,44 @@ public class WalletService : IWalletService
         _dbContext.Wallets.Add(wallet);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        _logger.LogInformation("New wallet {WalletId} opened for customer {CustomerId}", wallet.Id, wallet.CustomerId);
+        _logger.LogInformation("New wallet {WalletId} created for customer {CustomerId}", wallet.Id, wallet.CustomerId);
 
-        return new WalletDto(
-            wallet.Id,
-            wallet.CustomerId,
-            wallet.BalanceKobo,
-            wallet.Currency,
-            wallet.KycTier,
-            wallet.IsActive,
-            wallet.CreatedAtUtc);
+        var dto = new WalletDto
+        {
+            Id = wallet.Id,
+            CustomerId = wallet.CustomerId,
+            BalanceKobo = wallet.BalanceKobo,
+            Currency = wallet.Currency,
+            KycTier = wallet.KycTier,
+            IsActive = wallet.IsActive,
+            CreatedAtUtc = wallet.CreatedAtUtc
+        };
+
+        return dto;
     }
 
     public async Task<BalanceResponse> GetBalanceAsync(Guid walletId, CancellationToken cancellationToken = default)
     {
-        var wallet = await _dbContext.Wallets
+        Wallet? wallet = await _dbContext.Wallets
             .AsNoTracking()
-            .FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken)
-            ?? throw new WalletNotFoundException(walletId);
+            .FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken);
 
-        return new BalanceResponse(
-            WalletId: wallet.Id,
-            CustomerId: wallet.CustomerId,
-            BalanceKobo: wallet.BalanceKobo,
-            Currency: wallet.Currency,
-            FormattedNaira: wallet.BalanceKobo / 100.0m,
-            AsOfUtc: _clock.UtcNow);
+        if (wallet == null)
+        {
+            throw new WalletNotFoundException(walletId);
+        }
+
+        var response = new BalanceResponse
+        {
+            WalletId = wallet.Id,
+            CustomerId = wallet.CustomerId,
+            BalanceKobo = wallet.BalanceKobo,
+            Currency = wallet.Currency,
+            FormattedNaira = wallet.BalanceKobo / 100.0m,
+            AsOfUtc = _clock.UtcNow
+        };
+
+        return response;
     }
 
     public async Task<CreditWalletResponse> CreditWalletAsync(
@@ -73,18 +85,23 @@ public class WalletService : IWalletService
         CancellationToken cancellationToken = default)
     {
         if (request.AmountKobo <= 0)
+        {
             throw new InvalidAmountException(request.AmountKobo);
+        }
 
-        await using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
+        await using IDbTransactionScope transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
 
-        var wallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken)
-            ?? throw new WalletNotFoundException(walletId);
+        Wallet? wallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken);
+        if (wallet == null)
+        {
+            throw new WalletNotFoundException(walletId);
+        }
 
-        var preBalance = wallet.BalanceKobo;
+        long preBalance = wallet.BalanceKobo;
         wallet.Credit(request.AmountKobo);
-        var postBalance = wallet.BalanceKobo;
+        long postBalance = wallet.BalanceKobo;
 
-        var reference = string.IsNullOrWhiteSpace(request.Reference)
+        string reference = string.IsNullOrWhiteSpace(request.Reference)
             ? $"NIP-DEP-{Guid.NewGuid():N}"
             : request.Reference.Trim();
 
@@ -119,13 +136,17 @@ public class WalletService : IWalletService
 
         _logger.LogInformation("Wallet {WalletId} credited with {Amount} kobo. Ref: {Reference}", walletId, request.AmountKobo, reference);
 
-        return new CreditWalletResponse(
-            TransactionId: txn.Id,
-            WalletId: wallet.Id,
-            AmountKobo: request.AmountKobo,
-            BalanceAfterKobo: postBalance,
-            Currency: wallet.Currency,
-            Reference: reference,
-            CompletedAtUtc: txn.CreatedAtUtc);
+        var response = new CreditWalletResponse
+        {
+            TransactionId = txn.Id,
+            WalletId = wallet.Id,
+            AmountKobo = request.AmountKobo,
+            BalanceAfterKobo = postBalance,
+            Currency = wallet.Currency,
+            Reference = reference,
+            CompletedAtUtc = txn.CreatedAtUtc
+        };
+
+        return response;
     }
 }

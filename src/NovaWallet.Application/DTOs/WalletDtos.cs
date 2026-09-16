@@ -1,113 +1,158 @@
-using NovaWallet.Domain.Enums;
-
 namespace NovaWallet.Application.DTOs;
 
-public record WalletDto(
-    Guid Id,
-    string CustomerId,
-    long BalanceKobo,
-    string Currency,
-    KycTier KycTier,
-    bool IsActive,
-    DateTime CreatedAtUtc
-);
+using NovaWallet.Domain.Enums;
 
-public record BalanceResponse(
-    Guid WalletId,
-    string CustomerId,
-    long BalanceKobo,
-    string Currency,
-    decimal FormattedNaira,
-    DateTime AsOfUtc
-);
+public class WalletDto
+{
+    public Guid Id { get; set; }
+    public string CustomerId { get; set; } = string.Empty;
+    public long BalanceKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public KycTier KycTier { get; set; }
+    public bool IsActive { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+}
 
-public record CreateWalletRequest(
-    string CustomerId,
-    KycTier KycTier = KycTier.Tier1,
-    string? Bvn = null,
-    string? Nin = null
-);
+public class BalanceResponse
+{
+    public Guid WalletId { get; set; }
+    public string CustomerId { get; set; } = string.Empty;
+    public long BalanceKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public decimal FormattedNaira { get; set; }
+    public DateTime AsOfUtc { get; set; }
+}
 
-public record CreditWalletRequest(
-    long AmountKobo,
-    string? Reference = null,
-    string? CounterpartyBankCode = null,
-    string? SessionId = null,
-    string? Description = null,
-    string Channel = "NIP"
-);
+public class CreateWalletRequest
+{
+    public string CustomerId { get; set; } = string.Empty;
+    public KycTier KycTier { get; set; } = KycTier.Tier1;
+    public string? Bvn { get; set; }
+    public string? Nin { get; set; }
 
-public record CreditWalletResponse(
-    Guid TransactionId,
-    Guid WalletId,
-    long AmountKobo,
-    long BalanceAfterKobo,
-    string Currency,
-    string Reference,
-    DateTime CompletedAtUtc
-);
+    public CreateWalletRequest() { }
 
-public record TransferRequest(
-    Guid SourceWalletId,
-    Guid DestinationWalletId,
-    long AmountKobo,
-    string? Reference = null,
-    string? Description = null,
-    string Channel = "API"
-);
+    public CreateWalletRequest(string customerId, KycTier kycTier = KycTier.Tier1, string? bvn = null, string? nin = null)
+    {
+        CustomerId = customerId;
+        KycTier = kycTier;
+        Bvn = bvn;
+        Nin = nin;
+    }
+}
 
-public record TransferResponse(
-    Guid TransactionId,
-    string Reference,
-    Guid SourceWalletId,
-    Guid DestinationWalletId,
-    long AmountKobo,
-    long SourceBalanceAfterKobo,
-    string Currency,
-    DateTime CompletedAtUtc
-);
+public class CreditWalletRequest
+{
+    public long AmountKobo { get; set; }
+    public string? Reference { get; set; }
+    public string? CounterpartyBankCode { get; set; }
+    public string? SessionId { get; set; }
+    public string? Description { get; set; }
+    public string Channel { get; set; } = "NIP";
 
-public record StatementQuery(
-    int PageNumber = 1,
-    int PageSize = 20,
-    DateTime? FromDateUtc = null,
-    DateTime? ToDateUtc = null,
-    TransactionType? Type = null
-);
+    public CreditWalletRequest() { }
 
-public record StatementResponse(
-    Guid WalletId,
-    int PageNumber,
-    int PageSize,
-    int TotalCount,
-    int TotalPages,
-    IReadOnlyList<TransactionDto> Items
-);
+    public CreditWalletRequest(long amountKobo, string? reference = null, string? counterpartyBankCode = null, string? sessionId = null, string? description = null, string channel = "NIP")
+    {
+        AmountKobo = amountKobo;
+        Reference = reference;
+        CounterpartyBankCode = counterpartyBankCode;
+        SessionId = sessionId;
+        Description = description;
+        Channel = channel;
+    }
+}
 
-public record TransactionDto(
-    Guid Id,
-    Guid WalletId,
-    TransactionType Type,
-    long AmountKobo,
-    long BalanceAfterKobo,
-    string Currency,
-    string Reference,
-    Guid? CounterpartyWalletId,
-    string? Description,
-    string Channel,
-    TransactionStatus Status,
-    DateTime CreatedAtUtc
-);
+public class CreditWalletResponse
+{
+    public Guid TransactionId { get; set; }
+    public Guid WalletId { get; set; }
+    public long AmountKobo { get; set; }
+    public long BalanceAfterKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public string Reference { get; set; } = string.Empty;
+    public DateTime CompletedAtUtc { get; set; }
+}
 
-public record AuditLogDto(
-    Guid Id,
-    Guid WalletId,
-    string Operation,
-    long AmountKobo,
-    long PreBalanceKobo,
-    long PostBalanceKobo,
-    string? Reference,
-    string? CorrelationId,
-    string? PerformedBy,
-    DateTime CreatedAtUtc
-);
+public class TransferRequest
+{
+    public Guid SourceWalletId { get; set; }
+    public Guid DestinationWalletId { get; set; }
+    public long AmountKobo { get; set; }
+    public string? Reference { get; set; }
+    public string? Description { get; set; }
+    public string Channel { get; set; } = "API";
+
+    public TransferRequest() { }
+
+    public TransferRequest(Guid sourceWalletId, Guid destinationWalletId, long amountKobo, string? reference = null, string? description = null, string channel = "API")
+    {
+        SourceWalletId = sourceWalletId;
+        DestinationWalletId = destinationWalletId;
+        AmountKobo = amountKobo;
+        Reference = reference;
+        Description = description;
+        Channel = channel;
+    }
+}
+
+public class TransferResponse
+{
+    public Guid TransactionId { get; set; }
+    public string Reference { get; set; } = string.Empty;
+    public Guid SourceWalletId { get; set; }
+    public Guid DestinationWalletId { get; set; }
+    public long AmountKobo { get; set; }
+    public long SourceBalanceAfterKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public DateTime CompletedAtUtc { get; set; }
+}
+
+public class StatementQuery
+{
+    public int PageNumber { get; set; } = 1;
+    public int PageSize { get; set; } = 20;
+    public DateTime? FromDateUtc { get; set; }
+    public DateTime? ToDateUtc { get; set; }
+    public TransactionType? Type { get; set; }
+}
+
+public class StatementResponse
+{
+    public Guid WalletId { get; set; }
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalCount { get; set; }
+    public int TotalPages { get; set; }
+    public List<TransactionDto> Items { get; set; } = new List<TransactionDto>();
+}
+
+public class TransactionDto
+{
+    public Guid Id { get; set; }
+    public Guid WalletId { get; set; }
+    public TransactionType Type { get; set; }
+    public long AmountKobo { get; set; }
+    public long BalanceAfterKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public string Reference { get; set; } = string.Empty;
+    public Guid? CounterpartyWalletId { get; set; }
+    public string? Description { get; set; }
+    public string Channel { get; set; } = "API";
+    public TransactionStatus Status { get; set; } = TransactionStatus.Success;
+    public DateTime CreatedAtUtc { get; set; }
+}
+
+public class AuditLogDto
+{
+    public Guid Id { get; set; }
+    public Guid WalletId { get; set; }
+    public string Operation { get; set; } = string.Empty;
+    public long AmountKobo { get; set; }
+    public long PreBalanceKobo { get; set; }
+    public long PostBalanceKobo { get; set; }
+    public string? Reference { get; set; }
+    public string? CorrelationId { get; set; }
+    public string? PerformedBy { get; set; }
+    public DateTime CreatedAtUtc { get; set; }
+}

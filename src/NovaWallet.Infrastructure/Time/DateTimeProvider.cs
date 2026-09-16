@@ -38,5 +38,8 @@ public class DateTimeProvider : IDateTimeProvider
         return TimeZoneInfo.ConvertTimeToUtc(midnightWat, _watZone);
     }
 
-    public DateTime GetWatMidnightTomorrowUtc() => GetWatMidnightTodayUtc().AddDays(1);
+    public DateTime GetWatMidnightTomorrowUtc()
+    {
+        return GetWatMidnightTodayUtc().AddDays(1);
+    }
 }

@@ -25,9 +25,7 @@ public class WalletsController : ControllerBase
         _creditValidator = creditValidator;
     }
 
-    /// <summary>
-    /// Creates a new wallet for a customer with starting balance zero.
-    /// </summary>
+    // Creates a new wallet for a customer with starting balance zero.
     [HttpPost]
     [ProducesResponseType(typeof(WalletDto), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -42,9 +40,7 @@ public class WalletsController : ControllerBase
         return CreatedAtAction(nameof(GetBalance), new { id = result.Id }, result);
     }
 
-    /// <summary>
-    /// Retrieves current balance and currency (NGN) with amounts in kobo.
-    /// </summary>
+    // Retrieves current balance and currency (NGN) with amounts in kobo.
     [HttpGet("{id:guid}/balance")]
     [ProducesResponseType(typeof(BalanceResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
@@ -55,9 +51,7 @@ public class WalletsController : ControllerBase
         return Ok(result);
     }
 
-    /// <summary>
-    /// Credits funds into a wallet (simulating an inbound NIP transfer).
-    /// </summary>
+    // Credits funds into a wallet (simulating an inbound NIP transfer).
     [HttpPost("{id:guid}/credit")]
     [ProducesResponseType(typeof(CreditWalletResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]

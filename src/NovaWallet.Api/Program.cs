@@ -52,12 +52,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "NovaWallet Ledger Service API",
         Version = "v1",
-        Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.\n\n" +
-                      "- Monetary amounts in integer Kobo (1 Naira = 100 Kobo).\n" +
-                      "- Concurrency-safe, deadlock-free P2P transfers.\n" +
-                      "- Idempotency-Key support with SHA-256 payload verification.\n" +
-                      "- Server-side daily limit (₦500,000/day reset at midnight WAT).\n" +
-                      "- Append-only immutable audit trail and Transactional Outbox pattern.",
+        Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.",
         Contact = new OpenApiContact
         {
             Name = "FirstBank Digital Factory - NovaPay Engineering",
@@ -67,7 +62,7 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using Bearer scheme. Format: 'Bearer {token}'.\n" +
+        Description = "JWT Authorization header using Bearer scheme. Enter: 'Bearer {token}'.\n" +
                       "Generate a test token via POST /api/auth/token.",
         Name = "Authorization",
         In = ParameterLocation.Header,
@@ -98,7 +93,7 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
-// Enable Swagger UI
+// Enable Swagger in all environments (Development & Production)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {

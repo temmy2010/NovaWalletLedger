@@ -21,14 +21,20 @@ public class AuditTrailTests
         var transferService = new TransferService(dbContext, dateTimeProvider, NullLogger<TransferService>.Instance);
 
         // 1. Create Wallets
-        var sourceWallet = (await walletService.CreateWalletAsync(new CreateWalletRequest("CUST-AUDIT-01"))).Id;
-        var destWallet = (await walletService.CreateWalletAsync(new CreateWalletRequest("CUST-AUDIT-02"))).Id;
+        var sourceWallet = (await walletService.CreateWalletAsync(new CreateWalletRequest { CustomerId = "CUST-AUDIT-01" })).Id;
+        var destWallet = (await walletService.CreateWalletAsync(new CreateWalletRequest { CustomerId = "CUST-AUDIT-02" })).Id;
 
         // 2. Credit Source (₦50,000 / 5,000,000 kobo)
-        await walletService.CreditWalletAsync(sourceWallet, new CreditWalletRequest(5_000_000L, "DEP-01"), "CORR-01", "ADMIN");
+        await walletService.CreditWalletAsync(sourceWallet, new CreditWalletRequest { AmountKobo = 5_000_000L, Reference = "DEP-01" }, "CORR-01", "ADMIN");
 
         // 3. Transfer from Source to Dest (₦20,000 / 2,000,000 kobo)
-        await transferService.TransferFundsAsync(new TransferRequest(sourceWallet, destWallet, 2_000_000L, "TRF-01"), correlationId: "CORR-02", performedBy: "USER-1");
+        await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet,
+            DestinationWalletId = destWallet,
+            AmountKobo = 2_000_000L,
+            Reference = "TRF-01"
+        }, correlationId: "CORR-02", performedBy: "USER-1");
 
         // Assert - Inspect AuditLogs table directly
         var sourceAudits = await dbContext.AuditLogs

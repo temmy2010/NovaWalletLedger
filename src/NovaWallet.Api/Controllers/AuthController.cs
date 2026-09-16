@@ -23,20 +23,43 @@ public class AuthController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GenerateToken([FromBody] TokenRequest request)
     {
-        var customerId = string.IsNullOrWhiteSpace(request.CustomerId) ? "CUST-FIRSTBANK-001" : request.CustomerId;
-        var role = string.IsNullOrWhiteSpace(request.Role) ? "Customer" : request.Role;
+        string customerId = string.IsNullOrWhiteSpace(request?.CustomerId) ? "CUST-FIRSTBANK-001" : request.CustomerId;
+        string role = string.IsNullOrWhiteSpace(request?.Role) ? "Customer" : request.Role;
 
-        var token = _jwtTokenService.GenerateToken(customerId, role);
+        string token = _jwtTokenService.GenerateToken(customerId, role);
 
-        return Ok(new TokenResponse(
-            AccessToken: token,
-            TokenType: "Bearer",
-            ExpiresInSeconds: 3600,
-            CustomerId: customerId,
-            Role: role
-        ));
+        var response = new TokenResponse
+        {
+            AccessToken = token,
+            TokenType = "Bearer",
+            ExpiresInSeconds = 3600,
+            CustomerId = customerId,
+            Role = role
+        };
+
+        return Ok(response);
     }
 }
 
-public record TokenRequest(string? CustomerId, string? Role);
-public record TokenResponse(string AccessToken, string TokenType, int ExpiresInSeconds, string CustomerId, string Role);
+public class TokenRequest
+{
+    public string? CustomerId { get; set; }
+    public string? Role { get; set; }
+
+    public TokenRequest() { }
+
+    public TokenRequest(string? customerId, string? role)
+    {
+        CustomerId = customerId;
+        Role = role;
+    }
+}
+
+public class TokenResponse
+{
+    public string AccessToken { get; set; } = string.Empty;
+    public string TokenType { get; set; } = "Bearer";
+    public int ExpiresInSeconds { get; set; } = 3600;
+    public string CustomerId { get; set; } = string.Empty;
+    public string Role { get; set; } = string.Empty;
+}

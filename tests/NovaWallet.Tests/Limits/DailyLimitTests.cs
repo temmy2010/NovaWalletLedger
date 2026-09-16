@@ -28,29 +28,35 @@ public class DailyLimitTests
         await dbContext.SaveChangesAsync();
 
         // Transfer 1: ₦300,000 (30,000,000 kobo) - Should Succeed
-        var firstTransfer = await transferService.TransferFundsAsync(new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 30_000_000L,
-            Reference: "LIMIT-TXN-1"));
+        var firstTransfer = await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 30_000_000L,
+            Reference = "LIMIT-TXN-1"
+        });
 
         firstTransfer.Should().NotBeNull();
 
         // Transfer 2: ₦250,000 (25,000,000 kobo) - Total would be ₦550,000 (> ₦500,000 limit) - MUST FAIL!
-        var secondTransferAct = async () => await transferService.TransferFundsAsync(new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 25_000_000L,
-            Reference: "LIMIT-TXN-2"));
+        var secondTransferAct = async () => await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 25_000_000L,
+            Reference = "LIMIT-TXN-2"
+        });
 
         await secondTransferAct.Should().ThrowAsync<DailyLimitExceededException>();
 
         // Transfer 3: ₦200,000 (20,000,000 kobo) - Total becomes exactly ₦500,000 - Should Succeed
-        var thirdTransfer = await transferService.TransferFundsAsync(new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 20_000_000L,
-            Reference: "LIMIT-TXN-3"));
+        var thirdTransfer = await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 20_000_000L,
+            Reference = "LIMIT-TXN-3"
+        });
 
         thirdTransfer.Should().NotBeNull();
     }
@@ -74,21 +80,25 @@ public class DailyLimitTests
         await dbContext.SaveChangesAsync();
 
         // Exhaust Day 1 Limit (₦500,000 / 50M kobo)
-        await transferService.TransferFundsAsync(new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 50_000_000L,
-            Reference: "DAY1-MAX"));
+        await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 50_000_000L,
+            Reference = "DAY1-MAX"
+        });
 
         // Advance Time past Midnight WAT: 17th September 2026, 00:05 WAT (16th Sept 23:05 UTC)
         mockTime.SetUtc(new DateTime(2026, 9, 16, 23, 5, 0, DateTimeKind.Utc));
 
         // Act - New transfer on Day 2 should succeed because WAT midnight reset has occurred!
-        var day2Transfer = await transferService.TransferFundsAsync(new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 10_000_000L, // ₦100,000
-            Reference: "DAY2-TXN-1"));
+        var day2Transfer = await transferService.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 10_000_000L, // ₦100,000
+            Reference = "DAY2-TXN-1"
+        });
 
         // Assert
         day2Transfer.Should().NotBeNull();
@@ -107,11 +117,20 @@ public class MockDateTimeProvider : IDateTimeProvider
         _watZone = TimeZoneInfo.CreateCustomTimeZone("WAT", TimeSpan.FromHours(1), "West Africa Time", "WAT");
     }
 
-    public void SetUtc(DateTime utc) => _utcNow = utc;
+    public void SetUtc(DateTime utc)
+    {
+        _utcNow = utc;
+    }
 
-    public DateTime UtcNow => _utcNow;
+    public DateTime UtcNow
+    {
+        get { return _utcNow; }
+    }
 
-    public DateTime WatNow => TimeZoneInfo.ConvertTimeFromUtc(_utcNow, _watZone);
+    public DateTime WatNow
+    {
+        get { return TimeZoneInfo.ConvertTimeFromUtc(_utcNow, _watZone); }
+    }
 
     public DateTime GetWatMidnightTodayUtc()
     {
@@ -120,5 +139,8 @@ public class MockDateTimeProvider : IDateTimeProvider
         return TimeZoneInfo.ConvertTimeToUtc(midnight, _watZone);
     }
 
-    public DateTime GetWatMidnightTomorrowUtc() => GetWatMidnightTodayUtc().AddDays(1);
+    public DateTime GetWatMidnightTomorrowUtc()
+    {
+        return GetWatMidnightTodayUtc().AddDays(1);
+    }
 }

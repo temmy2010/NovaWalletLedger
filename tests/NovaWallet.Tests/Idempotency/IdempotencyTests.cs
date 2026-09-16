@@ -26,11 +26,13 @@ public class IdempotencyTests
         dbContext.Wallets.AddRange(sourceWallet, destWallet);
         await dbContext.SaveChangesAsync();
 
-        var request = new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 10_000L, // ₦100.00
-            Reference: "IDEM-REF-001");
+        var request = new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 10_000L, // ₦100.00
+            Reference = "IDEM-REF-001"
+        };
 
         const string idempotencyKey = "firstbank-idempotency-key-12345";
 
@@ -74,17 +76,21 @@ public class IdempotencyTests
 
         const string idempotencyKey = "shared-idempotency-key-999";
 
-        var initialRequest = new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 5_000L,
-            Reference: "REF-A");
+        var initialRequest = new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 5_000L,
+            Reference = "REF-A"
+        };
 
-        var conflictingRequest = new TransferRequest(
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destWallet.Id,
-            AmountKobo: 15_000L, // Different amount
-            Reference: "REF-B");
+        var conflictingRequest = new TransferRequest
+        {
+            SourceWalletId = sourceWallet.Id,
+            DestinationWalletId = destWallet.Id,
+            AmountKobo = 15_000L, // Different amount
+            Reference = "REF-B"
+        };
 
         // Act - First Request Succeeds
         await transferService.TransferFundsAsync(initialRequest, idempotencyKey);

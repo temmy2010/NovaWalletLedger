@@ -44,11 +44,13 @@ public class ConcurrentTransferTests
             try
             {
                 var service = new TransferService(db, clock, logger);
-                var res = await service.TransferFundsAsync(new TransferRequest(
-                    SourceWalletId: sourceId,
-                    DestinationWalletId: destId,
-                    AmountKobo: amountPerTransferKobo,
-                    Reference: $"RACE-{i:D3}"));
+                var res = await service.TransferFundsAsync(new TransferRequest
+                {
+                    SourceWalletId = sourceId,
+                    DestinationWalletId = destId,
+                    AmountKobo = amountPerTransferKobo,
+                    Reference = $"RACE-{i:D3}"
+                });
 
                 successes.Add(res);
             }
