@@ -2,14 +2,14 @@ namespace NovaWallet.Domain.Entities;
 
 public class IdempotencyRecord
 {
-    public string Key { get; private set; } = string.Empty;
-    public string RequestHash { get; private set; } = string.Empty;
-    public int StatusCode { get; private set; }
-    public string ResponseBody { get; private set; } = string.Empty;
-    public DateTime CreatedAtUtc { get; private set; }
-    public DateTime ExpiresAtUtc { get; private set; }
+    public string Key { get; set; } = string.Empty;
+    public string RequestHash { get; set; } = string.Empty;
+    public int StatusCode { get; set; }
+    public string ResponseBody { get; set; } = string.Empty;
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime ExpiresAtUtc { get; set; }
 
-    private IdempotencyRecord() { }
+    public IdempotencyRecord() { }
 
     public IdempotencyRecord(string key, string requestHash, int statusCode, string responseBody, TimeSpan ttl)
     {

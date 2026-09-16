@@ -4,20 +4,20 @@ using NovaWallet.Domain.Enums;
 
 public class Transaction
 {
-    public Guid Id { get; private set; }
-    public Guid WalletId { get; private set; }
-    public TransactionType Type { get; private set; }
-    public long AmountKobo { get; private set; }
-    public long BalanceAfterKobo { get; private set; }
-    public string Currency { get; private set; } = "NGN";
-    public string Reference { get; private set; } = string.Empty;
-    public Guid? CounterpartyWalletId { get; private set; }
-    public string? Description { get; private set; }
-    public string Channel { get; private set; } = "API";
-    public TransactionStatus Status { get; private set; } = TransactionStatus.Success;
-    public DateTime CreatedAtUtc { get; private set; }
+    public Guid Id { get; set; }
+    public Guid WalletId { get; set; }
+    public TransactionType Type { get; set; }
+    public long AmountKobo { get; set; }
+    public long BalanceAfterKobo { get; set; }
+    public string Currency { get; set; } = "NGN";
+    public string Reference { get; set; } = string.Empty;
+    public Guid? CounterpartyWalletId { get; set; }
+    public string? Description { get; set; }
+    public string Channel { get; set; } = "API";
+    public TransactionStatus Status { get; set; } = TransactionStatus.Success;
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    private Transaction() { }
+    public Transaction() { }
 
     public Transaction(
         Guid id,

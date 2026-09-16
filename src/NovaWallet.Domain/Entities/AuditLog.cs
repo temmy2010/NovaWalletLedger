@@ -2,18 +2,18 @@ namespace NovaWallet.Domain.Entities;
 
 public class AuditLog
 {
-    public Guid Id { get; private set; }
-    public Guid WalletId { get; private set; }
-    public string Operation { get; private set; } = string.Empty;
-    public long AmountKobo { get; private set; }
-    public long PreBalanceKobo { get; private set; }
-    public long PostBalanceKobo { get; private set; }
-    public string? Reference { get; private set; }
-    public string? CorrelationId { get; private set; }
-    public string? PerformedBy { get; private set; }
-    public DateTime CreatedAtUtc { get; private set; }
+    public Guid Id { get; set; }
+    public Guid WalletId { get; set; }
+    public string Operation { get; set; } = string.Empty;
+    public long AmountKobo { get; set; }
+    public long PreBalanceKobo { get; set; }
+    public long PostBalanceKobo { get; set; }
+    public string? Reference { get; set; }
+    public string? CorrelationId { get; set; }
+    public string? PerformedBy { get; set; }
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
-    private AuditLog() { }
+    public AuditLog() { }
 
     public AuditLog(
         Guid id,

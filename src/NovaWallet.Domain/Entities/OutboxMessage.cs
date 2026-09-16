@@ -2,15 +2,15 @@ namespace NovaWallet.Domain.Entities;
 
 public class OutboxMessage
 {
-    public Guid Id { get; private set; }
-    public string EventType { get; private set; } = string.Empty;
-    public string Payload { get; private set; } = string.Empty;
-    public DateTime CreatedAtUtc { get; private set; }
-    public DateTime? ProcessedAtUtc { get; private set; }
-    public string? Error { get; private set; }
-    public int RetryCount { get; private set; }
+    public Guid Id { get; set; }
+    public string EventType { get; set; } = string.Empty;
+    public string Payload { get; set; } = string.Empty;
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? ProcessedAtUtc { get; set; }
+    public string? Error { get; set; }
+    public int RetryCount { get; set; }
 
-    private OutboxMessage() { }
+    public OutboxMessage() { }
 
     public OutboxMessage(Guid id, string eventType, string payload)
     {
