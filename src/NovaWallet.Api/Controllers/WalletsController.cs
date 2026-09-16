@@ -9,7 +9,6 @@ using NovaWallet.Application.Interfaces;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-[Tags("2. Wallets")]
 public class WalletsController : ControllerBase
 {
     private readonly IWalletService _walletService;

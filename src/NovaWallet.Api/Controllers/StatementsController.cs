@@ -8,7 +8,6 @@ using NovaWallet.Application.Interfaces;
 [ApiController]
 [Route("api/wallets/{id:guid}/statement")]
 [Authorize]
-[Tags("4. Statements")]
 public class StatementsController : ControllerBase
 {
     private readonly IStatementService _statementService;

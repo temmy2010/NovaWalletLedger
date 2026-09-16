@@ -90,9 +90,6 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
-
-    // Order tags alphabetically by their numeric prefix: 1. Authentication, 2. Wallets, 3. Transfers, 4. Statements, 5. Audit Logs
-    options.OrderActionsBy(apiDesc => $"{apiDesc.ActionDescriptor.RouteValues["controller"]}_{apiDesc.HttpMethod}");
 });
 
 var app = builder.Build();
@@ -107,8 +104,6 @@ app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "NovaWallet Ledger Service v1");
     c.RoutePrefix = "swagger";
-    c.DefaultModelsExpandDepth(-1); // Collapse Schemas by default so all endpoints are immediately visible
-    c.DocExpansion(Swashbuckle.AspNetCore.SwaggerUI.DocExpansion.List); // Expand sections cleanly
 });
 
 // Redirect root URL "/" directly to "/swagger"

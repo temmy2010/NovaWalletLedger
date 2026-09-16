@@ -11,7 +11,6 @@ using NovaWallet.Application.Interfaces;
 [Route("api/[controller]")]
 [Authorize]
 [EnableRateLimiting("transfer_policy")]
-[Tags("3. Transfers")]
 public class TransfersController : ControllerBase
 {
     private readonly ITransferService _transferService;

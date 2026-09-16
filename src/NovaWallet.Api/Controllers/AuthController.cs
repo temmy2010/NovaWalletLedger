@@ -6,7 +6,6 @@ using NovaWallet.Application.Common.Interfaces;
 
 [ApiController]
 [Route("api/[controller]")]
-[Tags("1. Authentication")]
 public class AuthController : ControllerBase
 {
     private readonly IJwtTokenService _jwtTokenService;

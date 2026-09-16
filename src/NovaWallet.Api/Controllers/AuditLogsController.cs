@@ -10,7 +10,6 @@ using NovaWallet.Domain.Exceptions;
 [ApiController]
 [Route("api/wallets/{id:guid}/audit-logs")]
 [Authorize]
-[Tags("5. Audit Logs")]
 public class AuditLogsController : ControllerBase
 {
     private readonly IApplicationDbContext _dbContext;
