@@ -100,6 +100,21 @@ public class TransferService : ITransferService
         Wallet source = firstWallet.Id == request.SourceWalletId ? firstWallet : secondWallet;
         Wallet destination = firstWallet.Id == request.DestinationWalletId ? firstWallet : secondWallet;
 
+        if (!source.IsActive)
+        {
+            throw new WalletInactiveException(source.Id);
+        }
+
+        if (!destination.IsActive)
+        {
+            throw new WalletInactiveException(destination.Id);
+        }
+
+        if (source.BalanceKobo < request.AmountKobo)
+        {
+            throw new InsufficientFundsException(source.Id, request.AmountKobo, source.BalanceKobo);
+        }
+
         // 3. Daily Limit Check (WAT Midnight Reset)
         DateTime watDayStartUtc = _clock.GetWatMidnightTodayUtc();
         long spentTodayKobo = await _dbContext.Transactions
@@ -121,8 +136,11 @@ public class TransferService : ITransferService
         long sourcePreBalance = source.BalanceKobo;
         long destPreBalance = destination.BalanceKobo;
 
-        source.Debit(request.AmountKobo);
-        destination.Credit(request.AmountKobo);
+        source.BalanceKobo -= request.AmountKobo;
+        source.UpdatedAtUtc = _clock.UtcNow;
+
+        destination.BalanceKobo += request.AmountKobo;
+        destination.UpdatedAtUtc = _clock.UtcNow;
 
         long sourcePostBalance = source.BalanceKobo;
         long destPostBalance = destination.BalanceKobo;
@@ -132,54 +150,66 @@ public class TransferService : ITransferService
             : request.Reference.Trim();
 
         // 5. Ledger Transactions
-        var debitTransaction = new Transaction(
-            id: Guid.NewGuid(),
-            walletId: source.Id,
-            type: TransactionType.TransferOut,
-            amountKobo: request.AmountKobo,
-            balanceAfterKobo: sourcePostBalance,
-            reference: reference,
-            counterpartyWalletId: destination.Id,
-            description: request.Description ?? "P2P Outbound Transfer",
-            channel: request.Channel,
-            status: TransactionStatus.Success);
+        var debitTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = source.Id,
+            Type = TransactionType.TransferOut,
+            AmountKobo = request.AmountKobo,
+            BalanceAfterKobo = sourcePostBalance,
+            Reference = reference,
+            CounterpartyWalletId = destination.Id,
+            Description = request.Description ?? "P2P Outbound Transfer",
+            Channel = request.Channel,
+            Status = TransactionStatus.Success,
+            CreatedAtUtc = _clock.UtcNow
+        };
 
-        var creditTransaction = new Transaction(
-            id: Guid.NewGuid(),
-            walletId: destination.Id,
-            type: TransactionType.TransferIn,
-            amountKobo: request.AmountKobo,
-            balanceAfterKobo: destPostBalance,
-            reference: reference,
-            counterpartyWalletId: source.Id,
-            description: request.Description ?? "P2P Inbound Transfer",
-            channel: request.Channel,
-            status: TransactionStatus.Success);
+        var creditTransaction = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = destination.Id,
+            Type = TransactionType.TransferIn,
+            AmountKobo = request.AmountKobo,
+            BalanceAfterKobo = destPostBalance,
+            Reference = reference,
+            CounterpartyWalletId = source.Id,
+            Description = request.Description ?? "P2P Inbound Transfer",
+            Channel = request.Channel,
+            Status = TransactionStatus.Success,
+            CreatedAtUtc = _clock.UtcNow
+        };
 
         _dbContext.Transactions.AddRange(debitTransaction, creditTransaction);
 
         // 6. Immutable Audit Trail
-        var debitAudit = new AuditLog(
-            id: Guid.NewGuid(),
-            walletId: source.Id,
-            operation: "TRANSFER_OUT",
-            amountKobo: request.AmountKobo,
-            preBalanceKobo: sourcePreBalance,
-            postBalanceKobo: sourcePostBalance,
-            reference: reference,
-            correlationId: correlationId,
-            performedBy: performedBy ?? "SYSTEM");
+        var debitAudit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            WalletId = source.Id,
+            Operation = "TRANSFER_OUT",
+            AmountKobo = request.AmountKobo,
+            PreBalanceKobo = sourcePreBalance,
+            PostBalanceKobo = sourcePostBalance,
+            Reference = reference,
+            CorrelationId = correlationId,
+            PerformedBy = performedBy ?? "SYSTEM",
+            CreatedAtUtc = _clock.UtcNow
+        };
 
-        var creditAudit = new AuditLog(
-            id: Guid.NewGuid(),
-            walletId: destination.Id,
-            operation: "TRANSFER_IN",
-            amountKobo: request.AmountKobo,
-            preBalanceKobo: destPreBalance,
-            postBalanceKobo: destPostBalance,
-            reference: reference,
-            correlationId: correlationId,
-            performedBy: performedBy ?? "SYSTEM");
+        var creditAudit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            WalletId = destination.Id,
+            Operation = "TRANSFER_IN",
+            AmountKobo = request.AmountKobo,
+            PreBalanceKobo = destPreBalance,
+            PostBalanceKobo = destPostBalance,
+            Reference = reference,
+            CorrelationId = correlationId,
+            PerformedBy = performedBy ?? "SYSTEM",
+            CreatedAtUtc = _clock.UtcNow
+        };
 
         _dbContext.AuditLogs.AddRange(debitAudit, creditAudit);
 
@@ -197,7 +227,14 @@ public class TransferService : ITransferService
             TimestampUtc = _clock.UtcNow
         });
 
-        var outboxMessage = new OutboxMessage(Guid.NewGuid(), "TransferCompleted", eventPayload);
+        var outboxMessage = new OutboxMessage
+        {
+            Id = Guid.NewGuid(),
+            EventType = "TransferCompleted",
+            Payload = eventPayload,
+            CreatedAtUtc = _clock.UtcNow
+        };
+
         _dbContext.OutboxMessages.Add(outboxMessage);
 
         var response = new TransferResponse
@@ -216,12 +253,15 @@ public class TransferService : ITransferService
         if (!string.IsNullOrWhiteSpace(idempotencyKey) && payloadHash != null)
         {
             string responseJson = JsonSerializer.Serialize(response);
-            var record = new IdempotencyRecord(
-                key: idempotencyKey,
-                requestHash: payloadHash,
-                statusCode: 200,
-                responseBody: responseJson,
-                ttl: TimeSpan.FromHours(24));
+            var record = new IdempotencyRecord
+            {
+                Key = idempotencyKey.Trim(),
+                RequestHash = payloadHash,
+                StatusCode = 200,
+                ResponseBody = responseJson,
+                CreatedAtUtc = _clock.UtcNow,
+                ExpiresAtUtc = _clock.UtcNow.AddHours(24)
+            };
 
             _dbContext.IdempotencyRecords.Add(record);
         }

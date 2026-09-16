@@ -16,32 +16,4 @@ public class Transaction
     public string Channel { get; set; } = "API";
     public TransactionStatus Status { get; set; } = TransactionStatus.Success;
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-
-    public Transaction() { }
-
-    public Transaction(
-        Guid id,
-        Guid walletId,
-        TransactionType type,
-        long amountKobo,
-        long balanceAfterKobo,
-        string reference,
-        Guid? counterpartyWalletId = null,
-        string? description = null,
-        string channel = "API",
-        TransactionStatus status = TransactionStatus.Success)
-    {
-        Id = id;
-        WalletId = walletId;
-        Type = type;
-        AmountKobo = amountKobo;
-        BalanceAfterKobo = balanceAfterKobo;
-        Currency = "NGN";
-        Reference = reference;
-        CounterpartyWalletId = counterpartyWalletId;
-        Description = description;
-        Channel = channel;
-        Status = status;
-        CreatedAtUtc = DateTime.UtcNow;
-    }
 }

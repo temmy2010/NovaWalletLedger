@@ -9,26 +9,4 @@ public class OutboxMessage
     public DateTime? ProcessedAtUtc { get; set; }
     public string? Error { get; set; }
     public int RetryCount { get; set; }
-
-    public OutboxMessage() { }
-
-    public OutboxMessage(Guid id, string eventType, string payload)
-    {
-        Id = id;
-        EventType = eventType;
-        Payload = payload;
-        CreatedAtUtc = DateTime.UtcNow;
-    }
-
-    public void MarkProcessed()
-    {
-        ProcessedAtUtc = DateTime.UtcNow;
-        Error = null;
-    }
-
-    public void MarkFailed(string error)
-    {
-        RetryCount++;
-        Error = error;
-    }
 }

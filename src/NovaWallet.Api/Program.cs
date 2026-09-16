@@ -52,7 +52,12 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "NovaWallet Ledger Service API",
         Version = "v1",
-        Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.",
+        Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.\n\n" +
+                      "- Monetary amounts in integer Kobo (1 Naira = 100 Kobo).\n" +
+                      "- Concurrency-safe, deadlock-free P2P transfers.\n" +
+                      "- Idempotency-Key support with SHA-256 payload verification.\n" +
+                      "- Server-side daily limit (₦500,000/day reset at midnight WAT).\n" +
+                      "- Append-only immutable audit trail and Transactional Outbox pattern.",
         Contact = new OpenApiContact
         {
             Name = "FirstBank Digital Factory - NovaPay Engineering",
@@ -62,7 +67,7 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using Bearer scheme. Enter: 'Bearer {token}'.\n" +
+        Description = "JWT Authorization header using Bearer scheme. Format: 'Bearer {token}'.\n" +
                       "Generate a test token via POST /api/auth/token.",
         Name = "Authorization",
         In = ParameterLocation.Header,
@@ -93,7 +98,7 @@ var app = builder.Build();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
-// Enable Swagger in all environments (Development & Production)
+// Enable Swagger UI
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
@@ -132,17 +137,89 @@ using (var scope = app.Services.CreateScope())
             var wallet1Id = Guid.Parse("11111111-1111-1111-1111-111111111111");
             var wallet2Id = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
-            var wallet1 = new Wallet(wallet1Id, "CUST-FIRSTBANK-001", KycTier.Tier3, "22233344455", "11122233344");
-            wallet1.Credit(10_000_000L); // ₦100,000.00
+            var wallet1 = new Wallet
+            {
+                Id = wallet1Id,
+                CustomerId = "CUST-FIRSTBANK-001",
+                KycTier = KycTier.Tier3,
+                Bvn = "22233344455",
+                Nin = "11122233344",
+                BalanceKobo = 10_000_000L, // ₦100,000.00
+                Currency = "NGN",
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
 
-            var wallet2 = new Wallet(wallet2Id, "CUST-FIRSTBANK-002", KycTier.Tier2, "33344455566", "22233344455");
-            wallet2.Credit(5_000_000L);  // ₦50,000.00
+            var wallet2 = new Wallet
+            {
+                Id = wallet2Id,
+                CustomerId = "CUST-FIRSTBANK-002",
+                KycTier = KycTier.Tier2,
+                Bvn = "33344455566",
+                Nin = "22233344455",
+                BalanceKobo = 5_000_000L,  // ₦50,000.00
+                Currency = "NGN",
+                IsActive = true,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
 
-            var tx1 = new Transaction(Guid.NewGuid(), wallet1.Id, TransactionType.Credit, 10_000_000L, 10_000_000L, "SEED-NIP-001", null, "Initial Seed Deposit", "NIP");
-            var tx2 = new Transaction(Guid.NewGuid(), wallet2.Id, TransactionType.Credit, 5_000_000L, 5_000_000L, "SEED-NIP-002", null, "Initial Seed Deposit", "NIP");
+            var tx1 = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet1.Id,
+                Type = TransactionType.Credit,
+                AmountKobo = 10_000_000L,
+                BalanceAfterKobo = 10_000_000L,
+                Reference = "SEED-NIP-001",
+                Description = "Initial Seed Deposit",
+                Channel = "NIP",
+                Status = TransactionStatus.Success,
+                CreatedAtUtc = DateTime.UtcNow
+            };
 
-            var audit1 = new AuditLog(Guid.NewGuid(), wallet1.Id, "SEED_CREDIT", 10_000_000L, 0, 10_000_000L, "SEED-NIP-001", "SYSTEM-INIT", "SEEDER");
-            var audit2 = new AuditLog(Guid.NewGuid(), wallet2.Id, "SEED_CREDIT", 5_000_000L, 0, 5_000_000L, "SEED-NIP-002", "SYSTEM-INIT", "SEEDER");
+            var tx2 = new Transaction
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet2.Id,
+                Type = TransactionType.Credit,
+                AmountKobo = 5_000_000L,
+                BalanceAfterKobo = 5_000_000L,
+                Reference = "SEED-NIP-002",
+                Description = "Initial Seed Deposit",
+                Channel = "NIP",
+                Status = TransactionStatus.Success,
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            var audit1 = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet1.Id,
+                Operation = "SEED_CREDIT",
+                AmountKobo = 10_000_000L,
+                PreBalanceKobo = 0L,
+                PostBalanceKobo = 10_000_000L,
+                Reference = "SEED-NIP-001",
+                CorrelationId = "SYSTEM-INIT",
+                PerformedBy = "SEEDER",
+                CreatedAtUtc = DateTime.UtcNow
+            };
+
+            var audit2 = new AuditLog
+            {
+                Id = Guid.NewGuid(),
+                WalletId = wallet2.Id,
+                Operation = "SEED_CREDIT",
+                AmountKobo = 5_000_000L,
+                PreBalanceKobo = 0L,
+                PostBalanceKobo = 5_000_000L,
+                Reference = "SEED-NIP-002",
+                CorrelationId = "SYSTEM-INIT",
+                PerformedBy = "SEEDER",
+                CreatedAtUtc = DateTime.UtcNow
+            };
 
             db.Wallets.AddRange(wallet1, wallet2);
             db.Transactions.AddRange(tx1, tx2);

@@ -22,11 +22,24 @@ public class ConcurrentTransferTests
         var sourceId = Guid.NewGuid();
         var destId = Guid.NewGuid();
 
-        var source = new Wallet(sourceId, "CUST-RACE-001", KycTier.Tier1);
         const long startingBalanceKobo = 10_000L; // ₦100.00
-        source.Credit(startingBalanceKobo);
+        var source = new Wallet
+        {
+            Id = sourceId,
+            CustomerId = "CUST-RACE-001",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = startingBalanceKobo,
+            IsActive = true
+        };
 
-        var dest = new Wallet(destId, "CUST-RACE-002", KycTier.Tier1);
+        var dest = new Wallet
+        {
+            Id = destId,
+            CustomerId = "CUST-RACE-002",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
         db.Wallets.AddRange(source, dest);
         await db.SaveChangesAsync();
@@ -92,11 +105,23 @@ public class ConcurrentTransferTests
         var walletAId = Guid.NewGuid();
         var walletBId = Guid.NewGuid();
 
-        var walletA = new Wallet(walletAId, "CUST-A", KycTier.Tier2);
-        walletA.Credit(100_000L); // ₦1,000.00
+        var walletA = new Wallet
+        {
+            Id = walletAId,
+            CustomerId = "CUST-A",
+            KycTier = KycTier.Tier2,
+            BalanceKobo = 100_000L, // ₦1,000.00
+            IsActive = true
+        };
 
-        var walletB = new Wallet(walletBId, "CUST-B", KycTier.Tier2);
-        walletB.Credit(100_000L); // ₦1,000.00
+        var walletB = new Wallet
+        {
+            Id = walletBId,
+            CustomerId = "CUST-B",
+            KycTier = KycTier.Tier2,
+            BalanceKobo = 100_000L, // ₦1,000.00
+            IsActive = true
+        };
 
         db.Wallets.AddRange(walletA, walletB);
         await db.SaveChangesAsync();
@@ -108,13 +133,25 @@ public class ConcurrentTransferTests
         var tasksAtoB = Enumerable.Range(0, batchSize).Select(async i =>
         {
             var service = new TransferService(db, clock, logger);
-            return await service.TransferFundsAsync(new TransferRequest(walletAId, walletBId, transferAmountKobo, $"A-B-{i}"));
+            return await service.TransferFundsAsync(new TransferRequest
+            {
+                SourceWalletId = walletAId,
+                DestinationWalletId = walletBId,
+                AmountKobo = transferAmountKobo,
+                Reference = $"A-B-{i}"
+            });
         });
 
         var tasksBtoA = Enumerable.Range(0, batchSize).Select(async i =>
         {
             var service = new TransferService(db, clock, logger);
-            return await service.TransferFundsAsync(new TransferRequest(walletBId, walletAId, transferAmountKobo, $"B-A-{i}"));
+            return await service.TransferFundsAsync(new TransferRequest
+            {
+                SourceWalletId = walletBId,
+                DestinationWalletId = walletAId,
+                AmountKobo = transferAmountKobo,
+                Reference = $"B-A-{i}"
+            });
         });
 
         var allResults = await Task.WhenAll(tasksAtoB.Concat(tasksBtoA));

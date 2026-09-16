@@ -1,6 +1,11 @@
+using Microsoft.Extensions.Logging.Abstractions;
+using NovaWallet.Application.DTOs;
+using NovaWallet.Application.Services;
 using NovaWallet.Domain.Entities;
 using NovaWallet.Domain.Enums;
 using NovaWallet.Domain.Exceptions;
+using NovaWallet.Infrastructure.Time;
+using NovaWallet.Tests.Helpers;
 
 namespace NovaWallet.Tests.Unit;
 
@@ -9,7 +14,13 @@ public class IntegerMathPrecisionTests
     [Fact]
     public void Wallet_MustPerformExactIntegerMathWithoutFloatingPointDrift()
     {
-        var wallet = new Wallet(Guid.NewGuid(), "CUST-MATH-01", KycTier.Tier1);
+        var wallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-MATH-01",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 0L
+        };
 
         // Simulating multiple micropayments that would fail with float/double
         // E.g. adding 10 kobo (₦0.10) 100,000 times
@@ -18,42 +29,83 @@ public class IntegerMathPrecisionTests
 
         for (int i = 0; i < iterations; i++)
         {
-            wallet.Credit(microDepositKobo);
+            wallet.BalanceKobo += microDepositKobo;
         }
 
         // Expected: exactly 1,000,000 kobo (₦10,000.00)
         wallet.BalanceKobo.Should().Be(1_000_000L);
 
         // Debit 333,333 kobo (₦3,333.33)
-        wallet.Debit(333_333L);
+        wallet.BalanceKobo -= 333_333L;
         wallet.BalanceKobo.Should().Be(666_667L);
     }
 
     [Fact]
-    public void Wallet_CannotBeDebitedBelowZero()
+    public async Task TransferService_CannotDebitBelowZero()
     {
-        var wallet = new Wallet(Guid.NewGuid(), "CUST-MATH-02", KycTier.Tier1);
-        wallet.Credit(5_000L); // 5,000 kobo
+        using var db = TestDbContextFactory.CreateInMemoryDbContext();
+        var clock = new DateTimeProvider();
+        var service = new TransferService(db, clock, NullLogger<TransferService>.Instance);
 
-        var act = () => wallet.Debit(5_001L);
+        var source = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-MATH-02",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 5_000L, // 5,000 kobo
+            IsActive = true
+        };
+        var dest = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-MATH-03",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
-        act.Should().Throw<InsufficientFundsException>()
+        db.Wallets.AddRange(source, dest);
+        await db.SaveChangesAsync();
+
+        var act = async () => await service.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = source.Id,
+            DestinationWalletId = dest.Id,
+            AmountKobo = 5_001L,
+            Reference = "OVERDRAW-01"
+        });
+
+        await act.Should().ThrowAsync<InsufficientFundsException>()
             .WithMessage("*insufficient funds*");
     }
 
     [Fact]
-    public void Wallet_RejectsZeroOrNegativeAmounts()
+    public async Task TransferService_RejectsZeroOrNegativeAmounts()
     {
-        var wallet = new Wallet(Guid.NewGuid(), "CUST-MATH-03", KycTier.Tier1);
+        using var db = TestDbContextFactory.CreateInMemoryDbContext();
+        var clock = new DateTimeProvider();
+        var service = new TransferService(db, clock, NullLogger<TransferService>.Instance);
 
-        var creditZero = () => wallet.Credit(0L);
-        var creditNegative = () => wallet.Credit(-100L);
-        var debitZero = () => wallet.Debit(0L);
-        var debitNegative = () => wallet.Debit(-100L);
+        var sourceId = Guid.NewGuid();
+        var destId = Guid.NewGuid();
 
-        creditZero.Should().Throw<InvalidAmountException>();
-        creditNegative.Should().Throw<InvalidAmountException>();
-        debitZero.Should().Throw<InvalidAmountException>();
-        debitNegative.Should().Throw<InvalidAmountException>();
+        var zeroTransfer = async () => await service.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceId,
+            DestinationWalletId = destId,
+            AmountKobo = 0L,
+            Reference = "ZERO-01"
+        });
+
+        var negativeTransfer = async () => await service.TransferFundsAsync(new TransferRequest
+        {
+            SourceWalletId = sourceId,
+            DestinationWalletId = destId,
+            AmountKobo = -100L,
+            Reference = "NEG-01"
+        });
+
+        await zeroTransfer.Should().ThrowAsync<InvalidAmountException>();
+        await negativeTransfer.Should().ThrowAsync<InvalidAmountException>();
     }
 }

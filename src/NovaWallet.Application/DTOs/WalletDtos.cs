@@ -29,16 +29,6 @@ public class CreateWalletRequest
     public KycTier KycTier { get; set; } = KycTier.Tier1;
     public string? Bvn { get; set; }
     public string? Nin { get; set; }
-
-    public CreateWalletRequest() { }
-
-    public CreateWalletRequest(string customerId, KycTier kycTier = KycTier.Tier1, string? bvn = null, string? nin = null)
-    {
-        CustomerId = customerId;
-        KycTier = kycTier;
-        Bvn = bvn;
-        Nin = nin;
-    }
 }
 
 public class CreditWalletRequest
@@ -49,18 +39,6 @@ public class CreditWalletRequest
     public string? SessionId { get; set; }
     public string? Description { get; set; }
     public string Channel { get; set; } = "NIP";
-
-    public CreditWalletRequest() { }
-
-    public CreditWalletRequest(long amountKobo, string? reference = null, string? counterpartyBankCode = null, string? sessionId = null, string? description = null, string channel = "NIP")
-    {
-        AmountKobo = amountKobo;
-        Reference = reference;
-        CounterpartyBankCode = counterpartyBankCode;
-        SessionId = sessionId;
-        Description = description;
-        Channel = channel;
-    }
 }
 
 public class CreditWalletResponse
@@ -82,18 +60,6 @@ public class TransferRequest
     public string? Reference { get; set; }
     public string? Description { get; set; }
     public string Channel { get; set; } = "API";
-
-    public TransferRequest() { }
-
-    public TransferRequest(Guid sourceWalletId, Guid destinationWalletId, long amountKobo, string? reference = null, string? description = null, string channel = "API")
-    {
-        SourceWalletId = sourceWalletId;
-        DestinationWalletId = destinationWalletId;
-        AmountKobo = amountKobo;
-        Reference = reference;
-        Description = description;
-        Channel = channel;
-    }
 }
 
 public class TransferResponse

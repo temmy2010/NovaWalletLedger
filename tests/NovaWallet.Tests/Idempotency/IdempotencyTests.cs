@@ -19,9 +19,22 @@ public class IdempotencyTests
         var dateTimeProvider = new DateTimeProvider();
         var transferService = new TransferService(dbContext, dateTimeProvider, NullLogger<TransferService>.Instance);
 
-        var sourceWallet = new Wallet(Guid.NewGuid(), "CUST-IDEM-001", KycTier.Tier1);
-        sourceWallet.Credit(50_000L); // ₦500.00
-        var destWallet = new Wallet(Guid.NewGuid(), "CUST-IDEM-002", KycTier.Tier1);
+        var sourceWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-IDEM-001",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 50_000L, // ₦500.00
+            IsActive = true
+        };
+        var destWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-IDEM-002",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
         dbContext.Wallets.AddRange(sourceWallet, destWallet);
         await dbContext.SaveChangesAsync();
@@ -67,9 +80,22 @@ public class IdempotencyTests
         var dateTimeProvider = new DateTimeProvider();
         var transferService = new TransferService(dbContext, dateTimeProvider, NullLogger<TransferService>.Instance);
 
-        var sourceWallet = new Wallet(Guid.NewGuid(), "CUST-IDEM-003", KycTier.Tier1);
-        sourceWallet.Credit(50_000L);
-        var destWallet = new Wallet(Guid.NewGuid(), "CUST-IDEM-004", KycTier.Tier1);
+        var sourceWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-IDEM-003",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 50_000L,
+            IsActive = true
+        };
+        var destWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-IDEM-004",
+            KycTier = KycTier.Tier1,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
         dbContext.Wallets.AddRange(sourceWallet, destWallet);
         await dbContext.SaveChangesAsync();

@@ -19,10 +19,23 @@ public class DailyLimitTests
         var dateTimeProvider = new MockDateTimeProvider(new DateTime(2026, 9, 16, 12, 0, 0, DateTimeKind.Utc));
         var transferService = new TransferService(dbContext, dateTimeProvider, NullLogger<TransferService>.Instance);
 
-        var sourceWallet = new Wallet(Guid.NewGuid(), "CUST-LIMIT-001", KycTier.Tier3);
-        sourceWallet.Credit(100_000_000L); // ₦1,000,000 in kobo
+        var sourceWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-LIMIT-001",
+            KycTier = KycTier.Tier3,
+            BalanceKobo = 100_000_000L, // ₦1,000,000 in kobo
+            IsActive = true
+        };
 
-        var destWallet = new Wallet(Guid.NewGuid(), "CUST-LIMIT-002", KycTier.Tier3);
+        var destWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-LIMIT-002",
+            KycTier = KycTier.Tier3,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
         dbContext.Wallets.AddRange(sourceWallet, destWallet);
         await dbContext.SaveChangesAsync();
@@ -71,10 +84,23 @@ public class DailyLimitTests
         var mockTime = new MockDateTimeProvider(new DateTime(2026, 9, 16, 21, 0, 0, DateTimeKind.Utc));
         var transferService = new TransferService(dbContext, mockTime, NullLogger<TransferService>.Instance);
 
-        var sourceWallet = new Wallet(Guid.NewGuid(), "CUST-LIMIT-003", KycTier.Tier3);
-        sourceWallet.Credit(200_000_000L); // ₦2,000,000 in kobo
+        var sourceWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-LIMIT-003",
+            KycTier = KycTier.Tier3,
+            BalanceKobo = 200_000_000L, // ₦2,000,000 in kobo
+            IsActive = true
+        };
 
-        var destWallet = new Wallet(Guid.NewGuid(), "CUST-LIMIT-004", KycTier.Tier3);
+        var destWallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = "CUST-LIMIT-004",
+            KycTier = KycTier.Tier3,
+            BalanceKobo = 0L,
+            IsActive = true
+        };
 
         dbContext.Wallets.AddRange(sourceWallet, destWallet);
         await dbContext.SaveChangesAsync();

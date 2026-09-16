@@ -27,19 +27,31 @@ public class WalletService : IWalletService
 
     public async Task<WalletDto> CreateWalletAsync(CreateWalletRequest request, CancellationToken cancellationToken = default)
     {
-        var wallet = new Wallet(
-            id: Guid.NewGuid(),
-            customerId: request.CustomerId,
-            kycTier: request.KycTier,
-            bvn: request.Bvn,
-            nin: request.Nin);
+        if (string.IsNullOrWhiteSpace(request.CustomerId))
+        {
+            throw new ArgumentException("Customer ID cannot be empty.", nameof(request.CustomerId));
+        }
+
+        var wallet = new Wallet
+        {
+            Id = Guid.NewGuid(),
+            CustomerId = request.CustomerId.Trim(),
+            KycTier = request.KycTier,
+            Bvn = request.Bvn,
+            Nin = request.Nin,
+            BalanceKobo = 0L,
+            Currency = "NGN",
+            IsActive = true,
+            CreatedAtUtc = _clock.UtcNow,
+            UpdatedAtUtc = _clock.UtcNow
+        };
 
         _dbContext.Wallets.Add(wallet);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("New wallet {WalletId} created for customer {CustomerId}", wallet.Id, wallet.CustomerId);
 
-        var dto = new WalletDto
+        return new WalletDto
         {
             Id = wallet.Id,
             CustomerId = wallet.CustomerId,
@@ -49,8 +61,6 @@ public class WalletService : IWalletService
             IsActive = wallet.IsActive,
             CreatedAtUtc = wallet.CreatedAtUtc
         };
-
-        return dto;
     }
 
     public async Task<BalanceResponse> GetBalanceAsync(Guid walletId, CancellationToken cancellationToken = default)
@@ -64,7 +74,7 @@ public class WalletService : IWalletService
             throw new WalletNotFoundException(walletId);
         }
 
-        var response = new BalanceResponse
+        return new BalanceResponse
         {
             WalletId = wallet.Id,
             CustomerId = wallet.CustomerId,
@@ -73,8 +83,6 @@ public class WalletService : IWalletService
             FormattedNaira = wallet.BalanceKobo / 100.0m,
             AsOfUtc = _clock.UtcNow
         };
-
-        return response;
     }
 
     public async Task<CreditWalletResponse> CreditWalletAsync(
@@ -97,36 +105,48 @@ public class WalletService : IWalletService
             throw new WalletNotFoundException(walletId);
         }
 
+        if (!wallet.IsActive)
+        {
+            throw new WalletInactiveException(walletId);
+        }
+
         long preBalance = wallet.BalanceKobo;
-        wallet.Credit(request.AmountKobo);
+        wallet.BalanceKobo += request.AmountKobo;
+        wallet.UpdatedAtUtc = _clock.UtcNow;
         long postBalance = wallet.BalanceKobo;
 
         string reference = string.IsNullOrWhiteSpace(request.Reference)
             ? $"NIP-DEP-{Guid.NewGuid():N}"
             : request.Reference.Trim();
 
-        var txn = new Transaction(
-            id: Guid.NewGuid(),
-            walletId: wallet.Id,
-            type: TransactionType.Credit,
-            amountKobo: request.AmountKobo,
-            balanceAfterKobo: postBalance,
-            reference: reference,
-            counterpartyWalletId: null,
-            description: request.Description ?? "Inbound NIP Deposit",
-            channel: request.Channel ?? "NIP",
-            status: TransactionStatus.Success);
+        var txn = new Transaction
+        {
+            Id = Guid.NewGuid(),
+            WalletId = wallet.Id,
+            Type = TransactionType.Credit,
+            AmountKobo = request.AmountKobo,
+            BalanceAfterKobo = postBalance,
+            Reference = reference,
+            CounterpartyWalletId = null,
+            Description = request.Description ?? "Inbound NIP Deposit",
+            Channel = request.Channel ?? "NIP",
+            Status = TransactionStatus.Success,
+            CreatedAtUtc = _clock.UtcNow
+        };
 
-        var audit = new AuditLog(
-            id: Guid.NewGuid(),
-            walletId: wallet.Id,
-            operation: "CREDIT",
-            amountKobo: request.AmountKobo,
-            preBalanceKobo: preBalance,
-            postBalanceKobo: postBalance,
-            reference: reference,
-            correlationId: correlationId,
-            performedBy: performedBy ?? "NIP_GATEWAY");
+        var audit = new AuditLog
+        {
+            Id = Guid.NewGuid(),
+            WalletId = wallet.Id,
+            Operation = "CREDIT",
+            AmountKobo = request.AmountKobo,
+            PreBalanceKobo = preBalance,
+            PostBalanceKobo = postBalance,
+            Reference = reference,
+            CorrelationId = correlationId,
+            PerformedBy = performedBy ?? "NIP_GATEWAY",
+            CreatedAtUtc = _clock.UtcNow
+        };
 
         _dbContext.Transactions.Add(txn);
         _dbContext.AuditLogs.Add(audit);
@@ -136,7 +156,7 @@ public class WalletService : IWalletService
 
         _logger.LogInformation("Wallet {WalletId} credited with {Amount} kobo. Ref: {Reference}", walletId, request.AmountKobo, reference);
 
-        var response = new CreditWalletResponse
+        return new CreditWalletResponse
         {
             TransactionId = txn.Id,
             WalletId = wallet.Id,
@@ -146,7 +166,5 @@ public class WalletService : IWalletService
             Reference = reference,
             CompletedAtUtc = txn.CreatedAtUtc
         };
-
-        return response;
     }
 }

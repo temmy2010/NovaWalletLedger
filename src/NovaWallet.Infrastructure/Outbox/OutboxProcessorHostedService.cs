@@ -75,12 +75,14 @@ public class OutboxProcessorHostedService : BackgroundService
                 _logger.LogInformation("[OUTBOX PUBLISH] Event={EventType} Id={EventId} Payload={Payload}",
                     msg.EventType, msg.Id, msg.Payload);
 
-                msg.MarkProcessed();
+                msg.ProcessedAtUtc = DateTime.UtcNow;
+                msg.Error = null;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to publish outbox event {EventId}", msg.Id);
-                msg.MarkFailed(ex.Message);
+                msg.RetryCount++;
+                msg.Error = ex.Message;
             }
         }
 

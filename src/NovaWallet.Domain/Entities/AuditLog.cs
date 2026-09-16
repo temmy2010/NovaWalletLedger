@@ -12,29 +12,4 @@ public class AuditLog
     public string? CorrelationId { get; set; }
     public string? PerformedBy { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
-
-    public AuditLog() { }
-
-    public AuditLog(
-        Guid id,
-        Guid walletId,
-        string operation,
-        long amountKobo,
-        long preBalanceKobo,
-        long postBalanceKobo,
-        string? reference = null,
-        string? correlationId = null,
-        string? performedBy = null)
-    {
-        Id = id;
-        WalletId = walletId;
-        Operation = operation;
-        AmountKobo = amountKobo;
-        PreBalanceKobo = preBalanceKobo;
-        PostBalanceKobo = postBalanceKobo;
-        Reference = reference;
-        CorrelationId = correlationId;
-        PerformedBy = performedBy;
-        CreatedAtUtc = DateTime.UtcNow;
-    }
 }
