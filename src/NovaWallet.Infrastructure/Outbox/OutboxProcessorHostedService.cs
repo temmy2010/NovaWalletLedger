@@ -29,13 +29,25 @@ public class OutboxProcessorHostedService : BackgroundService
             try
             {
                 await DispatchPendingEventsAsync(stoppingToken);
+                await Task.Delay(_pollingInterval, stoppingToken);
             }
-            catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // Clean exit on application shutdown
+                break;
+            }
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Unexpected error in outbox worker loop");
+                try
+                {
+                    await Task.Delay(_pollingInterval, stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
-
-            await Task.Delay(_pollingInterval, stoppingToken);
         }
 
         _logger.LogInformation("Outbox worker stopped");
