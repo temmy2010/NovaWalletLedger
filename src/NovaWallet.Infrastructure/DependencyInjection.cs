@@ -22,10 +22,23 @@ public static class DependencyInjection
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
-            if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
-                connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) ||
-                connectionString.Contains("Port=", StringComparison.OrdinalIgnoreCase))
+            if (connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Data Source=(localdb)", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Initial Catalog=", StringComparison.OrdinalIgnoreCase) ||
+                connectionString.Contains("Trusted_Connection=", StringComparison.OrdinalIgnoreCase))
             {
+                // Microsoft SQL Server (LocalDB, SQL Express, or Enterprise SQL Server)
+                options.UseSqlServer(connectionString, sqlServerOptions =>
+                {
+                    sqlServerOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
+                    sqlServerOptions.EnableRetryOnFailure(maxRetryCount: 3);
+                });
+            }
+            else if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) ||
+                     connectionString.Contains("Port=5432", StringComparison.OrdinalIgnoreCase) ||
+                     connectionString.Contains("Username=", StringComparison.OrdinalIgnoreCase))
+            {
+                // PostgreSQL
                 options.UseNpgsql(connectionString, npgsqlOptions =>
                 {
                     npgsqlOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
@@ -34,6 +47,7 @@ public static class DependencyInjection
             }
             else
             {
+                // SQLite (Default frictionless local database file)
                 options.UseSqlite(connectionString, sqliteOptions =>
                 {
                     sqliteOptions.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);

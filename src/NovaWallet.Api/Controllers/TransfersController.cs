@@ -29,10 +29,7 @@ public class TransfersController : ControllerBase
     /// Concurrency-safe, deadlock-free, strictly non-negative, and supports Idempotency-Key header.
     /// </summary>
     [HttpPost]
-    public async Task<IActionResult> Transfer(
-        [FromBody] TransferRequest request,
-        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> Transfer([FromBody] TransferRequest request, [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey, CancellationToken cancellationToken)
     {
         var validationResult = await _validator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)

@@ -53,10 +53,7 @@ public class WalletsController : ControllerBase
     /// Credits funds into a wallet (simulating an inbound NIP transfer).
     /// </summary>
     [HttpPost("{id:guid}/credit")]
-    public async Task<IActionResult> CreditWallet(
-        Guid id,
-        [FromBody] CreditWalletRequest request,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> CreditWallet(Guid id, [FromBody] CreditWalletRequest request, CancellationToken cancellationToken)
     {
         var validationResult = await _creditValidator.ValidateAsync(request, cancellationToken);
         if (!validationResult.IsValid)

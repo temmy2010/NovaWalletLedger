@@ -25,9 +25,7 @@ public class AuditLogsController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAuditLogs(Guid id, CancellationToken cancellationToken)
     {
-        bool walletExists = await _dbContext.Wallets
-            .AsNoTracking()
-            .AnyAsync(w => w.Id == id, cancellationToken);
+        bool walletExists = await _dbContext.Wallets.AsNoTracking().AnyAsync(w => w.Id == id, cancellationToken);
 
         if (!walletExists)
         {
