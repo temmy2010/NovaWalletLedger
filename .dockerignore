@@ -1,0 +1,12 @@
+**/.git
+**/.gitignore
+**/.vs
+**/.vscode
+**/bin
+**/obj
+**/TestResults
+*.db
+*.db-shm
+*.db-wal
+README.md
+AI_USAGE.md
