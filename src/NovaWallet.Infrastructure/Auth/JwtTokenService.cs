@@ -18,10 +18,17 @@ public class JwtTokenService : IJwtTokenService
 
     public JwtTokenService(IConfiguration configuration)
     {
-        _secretKey = configuration["Jwt:SecretKey"] ?? "NovaWalletSecretKeyMustBeAtLeast32BytesLong!";
-        _issuer = configuration["Jwt:Issuer"] ?? "NovaWallet.LedgerService";
-        _audience = configuration["Jwt:Audience"] ?? "NovaWallet.Api";
-        _expiryMinutes = int.TryParse(configuration["Jwt:ExpiryMinutes"], out var minutes) ? minutes : 60;
+        _secretKey = configuration["Jwt:SecretKey"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:SecretKey' is required in appsettings.json.");
+        _issuer = configuration["Jwt:Issuer"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:Issuer' is required in appsettings.json.");
+        _audience = configuration["Jwt:Audience"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:Audience' is required in appsettings.json.");
+
+        var expiryConfig = configuration["Jwt:ExpiryMinutes"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:ExpiryMinutes' is required in appsettings.json.");
+
+        _expiryMinutes = int.Parse(expiryConfig);
     }
 
     public string GenerateToken(string customerId, string role, IEnumerable<Claim>? additionalClaims = null)

@@ -1,3 +1,5 @@
+namespace NovaWallet.Infrastructure;
+
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -10,15 +12,13 @@ using NovaWallet.Infrastructure.Outbox;
 using NovaWallet.Infrastructure.Persistence;
 using NovaWallet.Infrastructure.Time;
 
-namespace NovaWallet.Infrastructure;
-
 public static class DependencyInjection
 {
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         // 1. Database Configuration (PostgreSQL / SQLite flexible provider)
         var connectionString = configuration.GetConnectionString("DefaultConnection") 
-                               ?? "Data Source=novawallet.db";
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is required in appsettings.json.");
 
         services.AddDbContext<ApplicationDbContext>(options =>
         {
@@ -65,9 +65,12 @@ public static class DependencyInjection
         services.AddHostedService<OutboxProcessorHostedService>();
 
         // 4. JWT Authentication
-        var secretKey = configuration["Jwt:SecretKey"] ?? "NovaWalletSecretKeyMustBeAtLeast32BytesLong!";
-        var issuer = configuration["Jwt:Issuer"] ?? "NovaWallet.LedgerService";
-        var audience = configuration["Jwt:Audience"] ?? "NovaWallet.Api";
+        var secretKey = configuration["Jwt:SecretKey"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:SecretKey' is required in appsettings.json.");
+        var issuer = configuration["Jwt:Issuer"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:Issuer' is required in appsettings.json.");
+        var audience = configuration["Jwt:Audience"] 
+            ?? throw new InvalidOperationException("Configuration 'Jwt:Audience' is required in appsettings.json.");
 
         services.AddAuthentication(options =>
         {
