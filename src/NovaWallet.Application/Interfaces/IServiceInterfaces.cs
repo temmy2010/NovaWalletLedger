@@ -18,3 +18,8 @@ public interface IStatementService
 {
     Task<StatementResponse> GetStatementAsync(Guid walletId, StatementQuery query, CancellationToken cancellationToken = default);
 }
+
+public interface IAuditService
+{
+    Task<List<AuditLogDto>> GetAuditLogsAsync(Guid walletId, CancellationToken cancellationToken = default);
+}
