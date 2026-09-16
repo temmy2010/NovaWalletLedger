@@ -20,7 +20,6 @@ public class AuthController : ControllerBase
     /// </summary>
     [HttpPost("token")]
     [AllowAnonymous]
-    [ProducesResponseType(StatusCodes.Status200OK)]
     public IActionResult GenerateToken([FromBody] TokenRequest request)
     {
         string customerId = string.IsNullOrWhiteSpace(request?.CustomerId) ? "CUST-FIRSTBANK-001" : request.CustomerId;
@@ -45,14 +44,6 @@ public class TokenRequest
 {
     public string? CustomerId { get; set; }
     public string? Role { get; set; }
-
-    public TokenRequest() { }
-
-    public TokenRequest(string? customerId, string? role)
-    {
-        CustomerId = customerId;
-        Role = role;
-    }
 }
 
 public class TokenResponse

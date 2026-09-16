@@ -1,11 +1,11 @@
+namespace NovaWallet.Api.Controllers;
+
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using NovaWallet.Application.DTOs;
 using NovaWallet.Application.Interfaces;
-
-namespace NovaWallet.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
@@ -24,14 +24,11 @@ public class TransfersController : ControllerBase
         _validator = validator;
     }
 
-    // Moves funds atomically from one wallet to another.
+    /// <summary>
+    /// Moves funds atomically from one wallet to another.
+    /// Concurrency-safe, deadlock-free, strictly non-negative, and supports Idempotency-Key header.
+    /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(TransferResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status422UnprocessableEntity)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    [ProducesResponseType(StatusCodes.Status429TooManyRequests)]
     public async Task<IActionResult> Transfer(
         [FromBody] TransferRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
@@ -44,7 +41,12 @@ public class TransfersController : ControllerBase
         var correlationId = HttpContext.Items.TryGetValue("X-Correlation-Id", out var cid) ? cid?.ToString() : null;
         var performedBy = User.Identity?.Name ?? "API_USER";
 
-        var result = await _transferService.TransferFundsAsync(request, idempotencyKey, correlationId, performedBy, cancellationToken);
+        var result = await _transferService.TransferFundsAsync(
+            request,
+            idempotencyKey,
+            correlationId,
+            performedBy,
+            cancellationToken);
 
         return Ok(result);
     }

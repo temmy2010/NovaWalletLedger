@@ -23,9 +23,6 @@ public class AuditLogsController : ControllerBase
     /// Queries the append-only, immutable audit trail for all balance mutations of a specific wallet.
     /// </summary>
     [HttpGet]
-    [ProducesResponseType(typeof(List<AuditLogDto>), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetAuditLogs(Guid id, CancellationToken cancellationToken)
     {
         bool walletExists = await _dbContext.Wallets

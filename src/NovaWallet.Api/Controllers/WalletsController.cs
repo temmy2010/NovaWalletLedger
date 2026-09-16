@@ -25,11 +25,10 @@ public class WalletsController : ControllerBase
         _creditValidator = creditValidator;
     }
 
-    // Creates a new wallet for a customer with starting balance zero.
+    /// <summary>
+    /// Creates a new wallet for a customer with starting balance zero.
+    /// </summary>
     [HttpPost]
-    [ProducesResponseType(typeof(WalletDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreateWallet([FromBody] CreateWalletRequest request, CancellationToken cancellationToken)
     {
         var validationResult = await _createValidator.ValidateAsync(request, cancellationToken);
@@ -40,23 +39,20 @@ public class WalletsController : ControllerBase
         return CreatedAtAction(nameof(GetBalance), new { id = result.Id }, result);
     }
 
-    // Retrieves current balance and currency (NGN) with amounts in kobo.
+    /// <summary>
+    /// Retrieves current balance and currency (NGN) with amounts in kobo.
+    /// </summary>
     [HttpGet("{id:guid}/balance")]
-    [ProducesResponseType(typeof(BalanceResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetBalance(Guid id, CancellationToken cancellationToken)
     {
         var result = await _walletService.GetBalanceAsync(id, cancellationToken);
         return Ok(result);
     }
 
-    // Credits funds into a wallet (simulating an inbound NIP transfer).
+    /// <summary>
+    /// Credits funds into a wallet (simulating an inbound NIP transfer).
+    /// </summary>
     [HttpPost("{id:guid}/credit")]
-    [ProducesResponseType(typeof(CreditWalletResponse), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> CreditWallet(
         Guid id,
         [FromBody] CreditWalletRequest request,
