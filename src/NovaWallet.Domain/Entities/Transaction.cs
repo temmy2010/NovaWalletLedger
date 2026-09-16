@@ -1,6 +1,6 @@
-using NovaWallet.Domain.Enums;
-
 namespace NovaWallet.Domain.Entities;
+
+using NovaWallet.Domain.Enums;
 
 public class Transaction
 {
@@ -13,7 +13,7 @@ public class Transaction
     public string Reference { get; private set; } = string.Empty;
     public Guid? CounterpartyWalletId { get; private set; }
     public string? Description { get; private set; }
-    public string Channel { get; private set; } = "API"; // APP, USSD, NIP, API
+    public string Channel { get; private set; } = "API";
     public TransactionStatus Status { get; private set; } = TransactionStatus.Success;
     public DateTime CreatedAtUtc { get; private set; }
 

@@ -4,7 +4,7 @@ public class AuditLog
 {
     public Guid Id { get; private set; }
     public Guid WalletId { get; private set; }
-    public string Operation { get; private set; } = string.Empty; // e.g. "CREDIT", "TRANSFER_OUT", "TRANSFER_IN"
+    public string Operation { get; private set; } = string.Empty;
     public long AmountKobo { get; private set; }
     public long PreBalanceKobo { get; private set; }
     public long PostBalanceKobo { get; private set; }

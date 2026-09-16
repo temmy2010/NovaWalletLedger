@@ -1,3 +1,5 @@
+namespace NovaWallet.Application.Services;
+
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,22 +12,22 @@ using NovaWallet.Domain.Entities;
 using NovaWallet.Domain.Enums;
 using NovaWallet.Domain.Exceptions;
 
-namespace NovaWallet.Application.Services;
-
 public class TransferService : ITransferService
 {
-    private const long DailyLimitKobo = 50_000_000L; // ₦500,000.00 in kobo
+    // CBN guidelines & system policy: ₦500,000 daily limit per wallet
+    private const long MaxDailyTransferKobo = 50_000_000L; 
+
     private readonly IApplicationDbContext _dbContext;
-    private readonly IDateTimeProvider _dateTimeProvider;
+    private readonly IDateTimeProvider _clock;
     private readonly ILogger<TransferService> _logger;
 
     public TransferService(
         IApplicationDbContext dbContext,
-        IDateTimeProvider dateTimeProvider,
+        IDateTimeProvider clock,
         ILogger<TransferService> logger)
     {
         _dbContext = dbContext;
-        _dateTimeProvider = dateTimeProvider;
+        _clock = clock;
         _logger = logger;
     }
 
@@ -42,119 +44,113 @@ public class TransferService : ITransferService
         if (request.AmountKobo <= 0)
             throw new InvalidAmountException(request.AmountKobo);
 
-        // 1. Idempotency Check
-        string? requestPayloadHash = null;
+        // Check if an idempotency key was supplied
+        string? payloadHash = null;
         if (!string.IsNullOrWhiteSpace(idempotencyKey))
         {
-            requestPayloadHash = ComputePayloadHash(request);
+            payloadHash = HashRequestPayload(request);
 
-            var existingIdempotency = await _dbContext.IdempotencyRecords
+            var existingRecord = await _dbContext.IdempotencyRecords
                 .AsNoTracking()
                 .FirstOrDefaultAsync(r => r.Key == idempotencyKey, cancellationToken);
 
-            if (existingIdempotency != null)
+            if (existingRecord != null)
             {
-                if (existingIdempotency.RequestHash != requestPayloadHash)
+                if (existingRecord.RequestHash != payloadHash)
                 {
-                    _logger.LogWarning("Idempotency conflict for key {Key}. Stored hash does not match current payload.", idempotencyKey);
+                    _logger.LogWarning("Idempotency key collision: {Key} submitted with different payload", idempotencyKey);
                     throw new IdempotencyConflictException(idempotencyKey);
                 }
 
-                _logger.LogInformation("Idempotent replay detected for key {Key}. Returning cached response.", idempotencyKey);
-                var cachedResponse = JsonSerializer.Deserialize<TransferResponse>(existingIdempotency.ResponseBody);
-                if (cachedResponse != null)
-                    return cachedResponse;
+                _logger.LogInformation("Replay request received for idempotency key {Key}. Returning cached response", idempotencyKey);
+                var cached = JsonSerializer.Deserialize<TransferResponse>(existingRecord.ResponseBody);
+                if (cached != null) return cached;
             }
         }
 
-        // 2. Deadlock-Free Sorted Resource Acquisition
-        // By always acquiring wallet rows in consistent ID order, we eliminate deadlocks
-        // when bidirectional cross-transfers (A -> B and B -> A) execute concurrently.
-        var firstId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
+        // To avoid deadlocks during concurrent bidirectional transfers (A -> B and B -> A),
+        // we always lock wallet rows in a fixed, deterministic order by Guid.
+        var lockFirstId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
             ? request.SourceWalletId
             : request.DestinationWalletId;
 
-        var secondId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
+        var lockSecondId = request.SourceWalletId.CompareTo(request.DestinationWalletId) < 0
             ? request.DestinationWalletId
             : request.SourceWalletId;
 
-        await using var transactionScope = await _dbContext.BeginTransactionAsync(cancellationToken);
+        await using var transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
 
-        var firstWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == firstId, cancellationToken);
-        var secondWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == secondId, cancellationToken);
+        var firstWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == lockFirstId, cancellationToken)
+            ?? throw new WalletNotFoundException(lockFirstId);
 
-        if (firstWallet == null)
-            throw new WalletNotFoundException(firstId);
+        var secondWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == lockSecondId, cancellationToken)
+            ?? throw new WalletNotFoundException(lockSecondId);
 
-        if (secondWallet == null)
-            throw new WalletNotFoundException(secondId);
+        var source = firstWallet.Id == request.SourceWalletId ? firstWallet : secondWallet;
+        var destination = firstWallet.Id == request.DestinationWalletId ? firstWallet : secondWallet;
 
-        var sourceWallet = firstWallet.Id == request.SourceWalletId ? firstWallet : secondWallet;
-        var destinationWallet = firstWallet.Id == request.DestinationWalletId ? firstWallet : secondWallet;
-
-        // 3. Enforce Daily Limit (WAT Midnight Reset)
-        var watStartOfDayUtc = _dateTimeProvider.GetWatMidnightTodayUtc();
-        var dailySpentKobo = await _dbContext.Transactions
-            .Where(t => t.WalletId == sourceWallet.Id &&
+        // Daily limit check in Nigerian local time (WAT = UTC+1)
+        var watDayStartUtc = _clock.GetWatMidnightTodayUtc();
+        var spentTodayKobo = await _dbContext.Transactions
+            .Where(t => t.WalletId == source.Id &&
                         t.Type == TransactionType.TransferOut &&
                         t.Status == TransactionStatus.Success &&
-                        t.CreatedAtUtc >= watStartOfDayUtc)
+                        t.CreatedAtUtc >= watDayStartUtc)
             .SumAsync(t => (long?)t.AmountKobo, cancellationToken) ?? 0L;
 
-        if (dailySpentKobo + request.AmountKobo > DailyLimitKobo)
+        if (spentTodayKobo + request.AmountKobo > MaxDailyTransferKobo)
         {
-            _logger.LogWarning("Daily limit exceeded for wallet {WalletId}. Spent: {Spent} kobo, Req: {Req} kobo, Limit: {Limit} kobo.",
-                sourceWallet.Id, dailySpentKobo, request.AmountKobo, DailyLimitKobo);
+            _logger.LogWarning("Daily transfer limit breached for wallet {WalletId}. Spent: {Spent} kobo, Attempted: {Attempted} kobo, Limit: {Limit} kobo",
+                source.Id, spentTodayKobo, request.AmountKobo, MaxDailyTransferKobo);
 
-            throw new DailyLimitExceededException(sourceWallet.Id, request.AmountKobo, dailySpentKobo, DailyLimitKobo);
+            throw new DailyLimitExceededException(source.Id, request.AmountKobo, spentTodayKobo, MaxDailyTransferKobo);
         }
 
-        // 4. Atomic Balance Mutation
-        long sourcePreBalance = sourceWallet.BalanceKobo;
-        long destPreBalance = destinationWallet.BalanceKobo;
+        // Atomic balance update
+        var sourcePreBalance = source.BalanceKobo;
+        var destPreBalance = destination.BalanceKobo;
 
-        // Debit verifies sufficient funds and ensures non-negative balance
-        sourceWallet.Debit(request.AmountKobo);
-        destinationWallet.Credit(request.AmountKobo);
+        source.Debit(request.AmountKobo);
+        destination.Credit(request.AmountKobo);
 
-        long sourcePostBalance = sourceWallet.BalanceKobo;
-        long destPostBalance = destinationWallet.BalanceKobo;
+        var sourcePostBalance = source.BalanceKobo;
+        var destPostBalance = destination.BalanceKobo;
 
-        // 5. Generate Ledger Transactions
-        string reference = string.IsNullOrWhiteSpace(request.Reference)
+        var reference = string.IsNullOrWhiteSpace(request.Reference)
             ? $"TRF-{Guid.NewGuid():N}"
-            : request.Reference;
+            : request.Reference.Trim();
 
-        var sourceTransaction = new Transaction(
+        // Ledger records for both sides of the transfer
+        var debitTxn = new Transaction(
             id: Guid.NewGuid(),
-            walletId: sourceWallet.Id,
+            walletId: source.Id,
             type: TransactionType.TransferOut,
             amountKobo: request.AmountKobo,
             balanceAfterKobo: sourcePostBalance,
             reference: reference,
-            counterpartyWalletId: destinationWallet.Id,
-            description: request.Description ?? "P2P Transfer Out",
+            counterpartyWalletId: destination.Id,
+            description: request.Description ?? "P2P Outbound Transfer",
             channel: request.Channel,
             status: TransactionStatus.Success);
 
-        var destinationTransaction = new Transaction(
+        var creditTxn = new Transaction(
             id: Guid.NewGuid(),
-            walletId: destinationWallet.Id,
+            walletId: destination.Id,
             type: TransactionType.TransferIn,
             amountKobo: request.AmountKobo,
             balanceAfterKobo: destPostBalance,
             reference: reference,
-            counterpartyWalletId: sourceWallet.Id,
-            description: request.Description ?? "P2P Transfer In",
+            counterpartyWalletId: source.Id,
+            description: request.Description ?? "P2P Inbound Transfer",
             channel: request.Channel,
             status: TransactionStatus.Success);
 
-        _dbContext.Transactions.AddRange(sourceTransaction, destinationTransaction);
+        _dbContext.Transactions.AddRange(debitTxn, creditTxn);
 
-        // 6. Immutable Append-Only Audit Trail
-        var sourceAudit = new AuditLog(
+        // Immutable audit log
+        var debitAudit = new AuditLog(
             id: Guid.NewGuid(),
-            walletId: sourceWallet.Id,
+            walletId: source.Id,
             operation: "TRANSFER_OUT",
             amountKobo: request.AmountKobo,
             preBalanceKobo: sourcePreBalance,
@@ -163,9 +159,9 @@ public class TransferService : ITransferService
             correlationId: correlationId,
             performedBy: performedBy ?? "SYSTEM");
 
-        var destinationAudit = new AuditLog(
+        var creditAudit = new AuditLog(
             id: Guid.NewGuid(),
-            walletId: destinationWallet.Id,
+            walletId: destination.Id,
             operation: "TRANSFER_IN",
             amountKobo: request.AmountKobo,
             preBalanceKobo: destPreBalance,
@@ -174,63 +170,59 @@ public class TransferService : ITransferService
             correlationId: correlationId,
             performedBy: performedBy ?? "SYSTEM");
 
-        _dbContext.AuditLogs.AddRange(sourceAudit, destinationAudit);
+        _dbContext.AuditLogs.AddRange(debitAudit, creditAudit);
 
-        // 7. Transactional Outbox Pattern: Publish TransferCompleted domain event
-        var outboxPayload = JsonSerializer.Serialize(new
+        // Outbox event for downstream integrations
+        var eventPayload = JsonSerializer.Serialize(new
         {
             EventId = Guid.NewGuid(),
             EventType = "TransferCompleted",
-            TransactionId = sourceTransaction.Id,
+            TransactionId = debitTxn.Id,
             Reference = reference,
-            SourceWalletId = sourceWallet.Id,
-            DestinationWalletId = destinationWallet.Id,
+            SourceWalletId = source.Id,
+            DestinationWalletId = destination.Id,
             AmountKobo = request.AmountKobo,
             Currency = "NGN",
-            TimestampUtc = _dateTimeProvider.UtcNow
+            TimestampUtc = _clock.UtcNow
         });
 
-        var outboxMessage = new OutboxMessage(Guid.NewGuid(), "TransferCompleted", outboxPayload);
-        _dbContext.OutboxMessages.Add(outboxMessage);
+        _dbContext.OutboxMessages.Add(new OutboxMessage(Guid.NewGuid(), "TransferCompleted", eventPayload));
 
         var response = new TransferResponse(
-            TransactionId: sourceTransaction.Id,
+            TransactionId: debitTxn.Id,
             Reference: reference,
-            SourceWalletId: sourceWallet.Id,
-            DestinationWalletId: destinationWallet.Id,
+            SourceWalletId: source.Id,
+            DestinationWalletId: destination.Id,
             AmountKobo: request.AmountKobo,
             SourceBalanceAfterKobo: sourcePostBalance,
             Currency: "NGN",
-            CompletedAtUtc: sourceTransaction.CreatedAtUtc);
+            CompletedAtUtc: debitTxn.CreatedAtUtc);
 
-        // 8. Persist Idempotency Record
-        if (!string.IsNullOrWhiteSpace(idempotencyKey) && requestPayloadHash != null)
+        // Cache the response against the idempotency key within the same transaction
+        if (!string.IsNullOrWhiteSpace(idempotencyKey) && payloadHash != null)
         {
             var responseJson = JsonSerializer.Serialize(response);
-            var idempotencyRecord = new IdempotencyRecord(
+            _dbContext.IdempotencyRecords.Add(new IdempotencyRecord(
                 key: idempotencyKey,
-                requestHash: requestPayloadHash,
+                requestHash: payloadHash,
                 statusCode: 200,
                 responseBody: responseJson,
-                timeToLive: TimeSpan.FromHours(24));
-
-            _dbContext.IdempotencyRecords.Add(idempotencyRecord);
+                ttl: TimeSpan.FromHours(24)));
         }
 
         await _dbContext.SaveChangesAsync(cancellationToken);
-        await transactionScope.CommitAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
 
-        _logger.LogInformation("Transfer completed successfully. Ref: {Reference}, Amount: {AmountKobo} kobo from {Source} to {Dest}.",
-            reference, request.AmountKobo, sourceWallet.Id, destinationWallet.Id);
+        _logger.LogInformation("Transfer {Reference} completed: {Amount} kobo moved from {Source} to {Destination}",
+            reference, request.AmountKobo, source.Id, destination.Id);
 
         return response;
     }
 
-    private static string ComputePayloadHash(TransferRequest request)
+    private static string HashRequestPayload(TransferRequest request)
     {
-        var rawData = $"{request.SourceWalletId:N}|{request.DestinationWalletId:N}|{request.AmountKobo}|{request.Reference?.Trim() ?? string.Empty}";
-        var bytes = Encoding.UTF8.GetBytes(rawData);
-        var hash = SHA256.HashData(bytes);
-        return Convert.ToHexString(hash);
+        var rawString = $"{request.SourceWalletId:N}|{request.DestinationWalletId:N}|{request.AmountKobo}|{request.Reference?.Trim()}";
+        var hashBytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawString));
+        return Convert.ToHexString(hashBytes);
     }
 }

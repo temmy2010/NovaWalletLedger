@@ -18,9 +18,6 @@ public class OutboxMessage
         EventType = eventType;
         Payload = payload;
         CreatedAtUtc = DateTime.UtcNow;
-        ProcessedAtUtc = null;
-        Error = null;
-        RetryCount = 0;
     }
 
     public void MarkProcessed()

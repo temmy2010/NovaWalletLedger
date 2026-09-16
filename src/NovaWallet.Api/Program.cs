@@ -12,7 +12,7 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Structured Logging with Serilog
+// Structured console logging with Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .Enrich.FromLogContext()
@@ -21,11 +21,11 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// 2. Add Clean Architecture Layers
+// Core layers
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 
-// 3. Rate Limiting Middleware (Stretch Goal)
+// Rate limiting on transfer endpoints
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -38,15 +38,14 @@ builder.Services.AddRateLimiter(options =>
     });
 });
 
-// 4. Controllers & Routing
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
-// 5. Health Checks (Stretch Goal)
+// Container health probes
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<ApplicationDbContext>("Database");
 
-// 6. OpenAPI / Swagger Documentation
+// Swagger documentation
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -54,8 +53,8 @@ builder.Services.AddSwaggerGen(options =>
         Title = "NovaWallet Ledger Service API",
         Version = "v1",
         Description = "FirstBank NovaPay Digital Factory - Concurrency-Safe Financial Wallet Ledger Backend Service.\n\n" +
-                      "- All monetary amounts in Kobo (integer math).\n" +
-                      "- Concurrency safe, deadlock-free wallet transfers.\n" +
+                      "- Monetary amounts in integer Kobo (1 Naira = 100 Kobo).\n" +
+                      "- Concurrency-safe, deadlock-free P2P transfers.\n" +
                       "- Idempotency-Key support with SHA-256 payload verification.\n" +
                       "- Server-side daily limit (₦500,000/day reset at midnight WAT).\n" +
                       "- Append-only immutable audit trail and Transactional Outbox pattern.",
@@ -68,8 +67,8 @@ builder.Services.AddSwaggerGen(options =>
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer {token}'.\n" +
-                      "Use the /api/Auth/token endpoint to generate a test token.",
+        Description = "JWT Authorization header using Bearer scheme. Enter: 'Bearer {token}'.\n" +
+                      "Generate a test token via POST /api/auth/token.",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.Http,
@@ -95,16 +94,20 @@ builder.Services.AddSwaggerGen(options =>
 
 var app = builder.Build();
 
-// 7. Request Pipeline Configuration
+// HTTP Middleware pipeline
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseMiddleware<GlobalExceptionHandlerMiddleware>();
 
+// Enable Swagger in all environments (Development & Production)
 app.UseSwagger();
 app.UseSwaggerUI(c =>
 {
     c.SwaggerEndpoint("/swagger/v1/swagger.json", "NovaWallet Ledger Service v1");
     c.RoutePrefix = "swagger";
 });
+
+// Redirect root URL "/" directly to "/swagger"
+app.MapGet("/", () => Results.Redirect("/swagger"));
 
 app.UseRouting();
 app.UseRateLimiter();
@@ -113,55 +116,53 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Health Check Endpoints
+// Health checks
 app.MapHealthChecks("/health/live");
 app.MapHealthChecks("/health/ready");
 
-// 8. Auto Database Initialization & Demo Data Seeding
+// Database initialization and demo seeding
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
     try
     {
-        logger.LogInformation("Ensuring database schema exists...");
-        await dbContext.Database.EnsureCreatedAsync();
+        await db.Database.EnsureCreatedAsync();
 
-        if (!await dbContext.Wallets.AnyAsync())
+        if (!await db.Wallets.AnyAsync())
         {
-            logger.LogInformation("Seeding demo wallets for testing and evaluation...");
+            logger.LogInformation("Seeding initial demo wallets...");
 
             var wallet1Id = Guid.Parse("11111111-1111-1111-1111-111111111111");
             var wallet2Id = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
             var wallet1 = new Wallet(wallet1Id, "CUST-FIRSTBANK-001", KycTier.Tier3, "22233344455", "11122233344");
-            wallet1.Credit(10_000_000L); // ₦100,000.00 in kobo
+            wallet1.Credit(10_000_000L); // ₦100,000.00
 
             var wallet2 = new Wallet(wallet2Id, "CUST-FIRSTBANK-002", KycTier.Tier2, "33344455566", "22233344455");
-            wallet2.Credit(5_000_000L); // ₦50,000.00 in kobo
+            wallet2.Credit(5_000_000L);  // ₦50,000.00
 
-            var seedTx1 = new Transaction(Guid.NewGuid(), wallet1.Id, TransactionType.Credit, 10_000_000L, 10_000_000L, "SEED-NIP-001", null, "Initial Seed Balance", "NIP");
-            var seedTx2 = new Transaction(Guid.NewGuid(), wallet2.Id, TransactionType.Credit, 5_000_000L, 5_000_000L, "SEED-NIP-002", null, "Initial Seed Balance", "NIP");
+            var tx1 = new Transaction(Guid.NewGuid(), wallet1.Id, TransactionType.Credit, 10_000_000L, 10_000_000L, "SEED-NIP-001", null, "Initial Seed Deposit", "NIP");
+            var tx2 = new Transaction(Guid.NewGuid(), wallet2.Id, TransactionType.Credit, 5_000_000L, 5_000_000L, "SEED-NIP-002", null, "Initial Seed Deposit", "NIP");
 
-            var seedAudit1 = new AuditLog(Guid.NewGuid(), wallet1.Id, "SEED_CREDIT", 10_000_000L, 0, 10_000_000L, "SEED-NIP-001", "SYSTEM-INIT", "SEEDER");
-            var seedAudit2 = new AuditLog(Guid.NewGuid(), wallet2.Id, "SEED_CREDIT", 5_000_000L, 0, 5_000_000L, "SEED-NIP-002", "SYSTEM-INIT", "SEEDER");
+            var audit1 = new AuditLog(Guid.NewGuid(), wallet1.Id, "SEED_CREDIT", 10_000_000L, 0, 10_000_000L, "SEED-NIP-001", "SYSTEM-INIT", "SEEDER");
+            var audit2 = new AuditLog(Guid.NewGuid(), wallet2.Id, "SEED_CREDIT", 5_000_000L, 0, 5_000_000L, "SEED-NIP-002", "SYSTEM-INIT", "SEEDER");
 
-            dbContext.Wallets.AddRange(wallet1, wallet2);
-            dbContext.Transactions.AddRange(seedTx1, seedTx2);
-            dbContext.AuditLogs.AddRange(seedAudit1, seedAudit2);
+            db.Wallets.AddRange(wallet1, wallet2);
+            db.Transactions.AddRange(tx1, tx2);
+            db.AuditLogs.AddRange(audit1, audit2);
 
-            await dbContext.SaveChangesAsync();
-            logger.LogInformation("Demo wallets seeded:\n - Wallet 1: {W1} (Balance: ₦100,000)\n - Wallet 2: {W2} (Balance: ₦50,000)", wallet1Id, wallet2Id);
+            await db.SaveChangesAsync();
+            logger.LogInformation("Demo accounts created: Wallet1={W1} (₦100,000), Wallet2={W2} (₦50,000)", wallet1Id, wallet2Id);
         }
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "An error occurred during database initialization/seeding.");
+        logger.LogError(ex, "Failed to initialize database");
     }
 }
 
 app.Run();
 
-// Make implicit Program class public for WebApplicationFactory in integration tests
 public partial class Program { }

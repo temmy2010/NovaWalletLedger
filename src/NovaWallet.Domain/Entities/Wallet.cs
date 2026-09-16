@@ -1,7 +1,7 @@
+namespace NovaWallet.Domain.Entities;
+
 using NovaWallet.Domain.Enums;
 using NovaWallet.Domain.Exceptions;
-
-namespace NovaWallet.Domain.Entities;
 
 public class Wallet
 {
@@ -16,17 +16,16 @@ public class Wallet
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime UpdatedAtUtc { get; private set; }
 
-    // EF Core parameterless constructor
-    private Wallet() { }
+    private Wallet() { } // EF Core
 
     public Wallet(Guid id, string customerId, KycTier kycTier = KycTier.Tier1, string? bvn = null, string? nin = null)
     {
         if (string.IsNullOrWhiteSpace(customerId))
-            throw new ArgumentException("Customer ID is required.", nameof(customerId));
+            throw new ArgumentException("CustomerId cannot be empty", nameof(customerId));
 
         Id = id;
-        CustomerId = customerId;
-        BalanceKobo = 0; // Starting balance is strictly zero
+        CustomerId = customerId.Trim();
+        BalanceKobo = 0; // Wallets always start at zero balance
         Currency = "NGN";
         KycTier = kycTier;
         Bvn = bvn;

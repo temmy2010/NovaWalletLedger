@@ -11,16 +11,16 @@ public class IdempotencyRecord
 
     private IdempotencyRecord() { }
 
-    public IdempotencyRecord(string key, string requestHash, int statusCode, string responseBody, TimeSpan timeToLive)
+    public IdempotencyRecord(string key, string requestHash, int statusCode, string responseBody, TimeSpan ttl)
     {
         if (string.IsNullOrWhiteSpace(key))
             throw new ArgumentException("Idempotency key is required.", nameof(key));
 
-        Key = key;
+        Key = key.Trim();
         RequestHash = requestHash;
         StatusCode = statusCode;
         ResponseBody = responseBody;
         CreatedAtUtc = DateTime.UtcNow;
-        ExpiresAtUtc = DateTime.UtcNow.Add(timeToLive);
+        ExpiresAtUtc = DateTime.UtcNow.Add(ttl);
     }
 }

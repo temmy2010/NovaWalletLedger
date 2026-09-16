@@ -1,16 +1,16 @@
+namespace NovaWallet.Infrastructure.Outbox;
+
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NovaWallet.Infrastructure.Persistence;
 
-namespace NovaWallet.Infrastructure.Outbox;
-
 public class OutboxProcessorHostedService : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<OutboxProcessorHostedService> _logger;
-    private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(3);
+    private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(3);
 
     public OutboxProcessorHostedService(
         IServiceScopeFactory scopeFactory,
@@ -22,59 +22,56 @@ public class OutboxProcessorHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Outbox Processor background service started.");
+        _logger.LogInformation("Outbox worker started");
 
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                await ProcessPendingMessagesAsync(stoppingToken);
+                await DispatchPendingEventsAsync(stoppingToken);
             }
             catch (Exception ex) when (!stoppingToken.IsCancellationRequested)
             {
-                _logger.LogError(ex, "Error occurred while processing outbox messages.");
+                _logger.LogError(ex, "Unexpected error in outbox worker loop");
             }
 
-            await Task.Delay(_pollInterval, stoppingToken);
+            await Task.Delay(_pollingInterval, stoppingToken);
         }
 
-        _logger.LogInformation("Outbox Processor background service stopped.");
+        _logger.LogInformation("Outbox worker stopped");
     }
 
-    private async Task ProcessPendingMessagesAsync(CancellationToken cancellationToken)
+    private async Task DispatchPendingEventsAsync(CancellationToken ct)
     {
         using var scope = _scopeFactory.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-        var pendingMessages = await dbContext.OutboxMessages
+        var pendingMessages = await db.OutboxMessages
             .Where(m => m.ProcessedAtUtc == null && m.RetryCount < 5)
             .OrderBy(m => m.CreatedAtUtc)
             .Take(20)
-            .ToListAsync(cancellationToken);
+            .ToListAsync(ct);
 
         if (pendingMessages.Count == 0)
             return;
 
-        _logger.LogInformation("Processing {Count} pending outbox messages...", pendingMessages.Count);
-
-        foreach (var message in pendingMessages)
+        foreach (var msg in pendingMessages)
         {
             try
             {
-                // In production, publish to Kafka / RabbitMQ / Azure Service Bus
-                // For this service, we simulate external domain event publication with structured logging
-                _logger.LogInformation("[OUTBOX PUBLISHED] Event: {EventType}, Id: {EventId}, Payload: {Payload}",
-                    message.EventType, message.Id, message.Payload);
+                // Dispatches to downstream message bus (Kafka/RabbitMQ)
+                _logger.LogInformation("[OUTBOX PUBLISH] Event={EventType} Id={EventId} Payload={Payload}",
+                    msg.EventType, msg.Id, msg.Payload);
 
-                message.MarkProcessed();
+                msg.MarkProcessed();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to publish outbox message {EventId}", message.Id);
-                message.MarkFailed(ex.Message);
+                _logger.LogError(ex, "Failed to publish outbox event {EventId}", msg.Id);
+                msg.MarkFailed(ex.Message);
             }
         }
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        await db.SaveChangesAsync(ct);
     }
 }

@@ -1,45 +1,42 @@
-using NovaWallet.Application.Common.Interfaces;
-
 namespace NovaWallet.Infrastructure.Time;
+
+using NovaWallet.Application.Common.Interfaces;
 
 public class DateTimeProvider : IDateTimeProvider
 {
-    private readonly TimeZoneInfo _watTimeZone;
+    private readonly TimeZoneInfo _watZone;
 
     public DateTimeProvider()
     {
-        // Support both Windows ("W. Central Africa Standard Time") and IANA/Linux ("Africa/Lagos")
+        // Support Windows and Linux/IANA timezone identifiers for Nigeria / West Africa
         try
         {
-            _watTimeZone = TimeZoneInfo.FindSystemTimeZoneById("W. Central Africa Standard Time");
+            _watZone = TimeZoneInfo.FindSystemTimeZoneById("W. Central Africa Standard Time");
         }
         catch (TimeZoneNotFoundException)
         {
             try
             {
-                _watTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Lagos");
+                _watZone = TimeZoneInfo.FindSystemTimeZoneById("Africa/Lagos");
             }
             catch
             {
-                // Fallback to UTC+1 fixed offset
-                _watTimeZone = TimeZoneInfo.CreateCustomTimeZone("WAT", TimeSpan.FromHours(1), "West Africa Time", "West Africa Standard Time");
+                // Fallback to standard UTC+1 offset
+                _watZone = TimeZoneInfo.CreateCustomTimeZone("WAT", TimeSpan.FromHours(1), "West Africa Time", "WAT");
             }
         }
     }
 
     public DateTime UtcNow => DateTime.UtcNow;
 
-    public DateTime WatNow => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _watTimeZone);
+    public DateTime WatNow => TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, _watZone);
 
     public DateTime GetWatMidnightTodayUtc()
     {
-        var watNow = WatNow;
-        var watMidnight = new DateTime(watNow.Year, watNow.Month, watNow.Day, 0, 0, 0, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(watMidnight, _watTimeZone);
+        var localWat = WatNow;
+        var midnightWat = new DateTime(localWat.Year, localWat.Month, localWat.Day, 0, 0, 0, DateTimeKind.Unspecified);
+        return TimeZoneInfo.ConvertTimeToUtc(midnightWat, _watZone);
     }
 
-    public DateTime GetWatMidnightTomorrowUtc()
-    {
-        return GetWatMidnightTodayUtc().AddDays(1);
-    }
+    public DateTime GetWatMidnightTomorrowUtc() => GetWatMidnightTodayUtc().AddDays(1);
 }

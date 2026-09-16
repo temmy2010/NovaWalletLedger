@@ -1,3 +1,5 @@
+namespace NovaWallet.Tests.Concurrency;
+
 using System.Collections.Concurrent;
 using Microsoft.Extensions.Logging.Abstractions;
 using NovaWallet.Application.DTOs;
@@ -8,146 +10,118 @@ using NovaWallet.Domain.Exceptions;
 using NovaWallet.Infrastructure.Time;
 using NovaWallet.Tests.Helpers;
 
-namespace NovaWallet.Tests.Concurrency;
-
 public class ConcurrentTransferTests
 {
     [Fact]
     public async Task ConcurrentTransfers_UnderHighContention_ShouldNeverAllowNegativeBalanceOrDoubleSpend()
     {
-        // Arrange
-        using var dbContext = TestDbContextFactory.CreateInMemoryDbContext();
-        var dateTimeProvider = new DateTimeProvider();
+        using var db = TestDbContextFactory.CreateInMemoryDbContext();
+        var clock = new DateTimeProvider();
         var logger = NullLogger<TransferService>.Instance;
 
-        var sourceWalletId = Guid.NewGuid();
-        var destWalletId = Guid.NewGuid();
+        var sourceId = Guid.NewGuid();
+        var destId = Guid.NewGuid();
 
-        var sourceWallet = new Wallet(sourceWalletId, "CUST-RACE-001", KycTier.Tier1);
-        const long initialBalanceKobo = 10_000L; // ₦100.00
-        sourceWallet.Credit(initialBalanceKobo);
+        var source = new Wallet(sourceId, "CUST-RACE-001", KycTier.Tier1);
+        const long startingBalanceKobo = 10_000L; // ₦100.00
+        source.Credit(startingBalanceKobo);
 
-        var destWallet = new Wallet(destWalletId, "CUST-RACE-002", KycTier.Tier1);
+        var dest = new Wallet(destId, "CUST-RACE-002", KycTier.Tier1);
 
-        dbContext.Wallets.AddRange(sourceWallet, destWallet);
-        await dbContext.SaveChangesAsync();
+        db.Wallets.AddRange(source, dest);
+        await db.SaveChangesAsync();
 
-        const int totalConcurrentRequests = 50;
-        const long transferAmountKobo = 500L; // ₦5.00
-        // Total requested = 50 * 500 = 25,000 kobo. But source only has 10,000 kobo!
-        // Exactly 20 transfers must succeed (20 * 500 = 10,000), 30 must fail.
+        // 50 concurrent requests of ₦5 (500 kobo) each. Total attempted = 25,000 kobo.
+        // With 10,000 kobo available, exactly 20 should succeed and 30 must fail.
+        const int totalThreads = 50;
+        const long amountPerTransferKobo = 500L;
 
-        var successfulTransfers = new ConcurrentBag<TransferResponse>();
-        var failedTransfers = new ConcurrentBag<Exception>();
+        var successes = new ConcurrentBag<TransferResponse>();
+        var failures = new ConcurrentBag<Exception>();
 
-        // Act - Dispatch 50 concurrent transfer requests across ThreadPool threads
-        var tasks = Enumerable.Range(0, totalConcurrentRequests).Select(async i =>
+        var tasks = Enumerable.Range(0, totalThreads).Select(async i =>
         {
             try
             {
-                // Each thread gets its own scoped service / DbContext instance connected to the same shared DB
-                var transferService = new TransferService(dbContext, dateTimeProvider, logger);
-                var request = new TransferRequest(
-                    SourceWalletId: sourceWalletId,
-                    DestinationWalletId: destWalletId,
-                    AmountKobo: transferAmountKobo,
-                    Reference: $"RACE-TXN-{i:D3}",
-                    Description: $"Race condition test #{i}");
+                var service = new TransferService(db, clock, logger);
+                var res = await service.TransferFundsAsync(new TransferRequest(
+                    SourceWalletId: sourceId,
+                    DestinationWalletId: destId,
+                    AmountKobo: amountPerTransferKobo,
+                    Reference: $"RACE-{i:D3}"));
 
-                var result = await transferService.TransferFundsAsync(request);
-                successfulTransfers.Add(result);
+                successes.Add(res);
             }
             catch (Exception ex)
             {
-                failedTransfers.Add(ex);
+                failures.Add(ex);
             }
         });
 
         await Task.WhenAll(tasks);
 
-        // Reload fresh state from DB
-        var finalSource = await dbContext.Wallets.FindAsync(sourceWalletId);
-        var finalDest = await dbContext.Wallets.FindAsync(destWalletId);
+        var finalSource = await db.Wallets.FindAsync(sourceId);
+        var finalDest = await db.Wallets.FindAsync(destId);
 
-        // Assert - Financial Invariants
         finalSource.Should().NotBeNull();
         finalDest.Should().NotBeNull();
 
-        // 1. Balance must NEVER go negative
-        finalSource!.BalanceKobo.Should().BeGreaterThanOrEqualTo(0, "Balance must never drop below zero under any interleaving");
-        finalSource.BalanceKobo.Should().Be(0L, "All 10,000 kobo should have been exhausted cleanly");
+        // Invariants:
+        finalSource!.BalanceKobo.Should().Be(0L, "All 10,000 kobo should be depleted with zero negative balance");
+        finalDest!.BalanceKobo.Should().Be(10_000L, "Destination should receive exactly 10,000 kobo");
+        (finalSource.BalanceKobo + finalDest.BalanceKobo).Should().Be(startingBalanceKobo, "No money created or lost");
 
-        // 2. Exact count of successful vs failed transfers
-        successfulTransfers.Count.Should().Be(20, "Only 20 transfers of 500 kobo can be satisfied from 10,000 kobo");
-        failedTransfers.Count.Should().Be(30, "The remaining 30 attempts must be rejected due to insufficient funds");
+        successes.Count.Should().Be(20);
+        failures.Count.Should().Be(30);
 
-        foreach (var failure in failedTransfers)
+        foreach (var failure in failures)
         {
             failure.Should().BeOfType<InsufficientFundsException>();
         }
-
-        // 3. Destination balance must match exact successful transfer sum
-        finalDest!.BalanceKobo.Should().Be(10_000L);
-
-        // 4. Conservation of Money invariant (Total Before == Total After)
-        (finalSource.BalanceKobo + finalDest.BalanceKobo).Should().Be(initialBalanceKobo, "Ledger must strictly conserve money");
     }
 
     [Fact]
     public async Task ConcurrentBidirectionalTransfers_ShouldBeDeadlockFree()
     {
-        // Arrange
-        using var dbContext = TestDbContextFactory.CreateInMemoryDbContext();
-        var dateTimeProvider = new DateTimeProvider();
+        using var db = TestDbContextFactory.CreateInMemoryDbContext();
+        var clock = new DateTimeProvider();
         var logger = NullLogger<TransferService>.Instance;
 
         var walletAId = Guid.NewGuid();
         var walletBId = Guid.NewGuid();
 
-        var walletA = new Wallet(walletAId, "CUST-BI-A", KycTier.Tier2);
+        var walletA = new Wallet(walletAId, "CUST-A", KycTier.Tier2);
         walletA.Credit(100_000L); // ₦1,000.00
 
-        var walletB = new Wallet(walletBId, "CUST-BI-B", KycTier.Tier2);
+        var walletB = new Wallet(walletBId, "CUST-B", KycTier.Tier2);
         walletB.Credit(100_000L); // ₦1,000.00
 
-        dbContext.Wallets.AddRange(walletA, walletB);
-        await dbContext.SaveChangesAsync();
+        db.Wallets.AddRange(walletA, walletB);
+        await db.SaveChangesAsync();
 
-        const int operationsPerDirection = 20;
-        const long amountKobo = 1_000L;
+        const int batchSize = 20;
+        const long transferAmountKobo = 1_000L;
 
-        // Act - 20 concurrent A -> B transfers and 20 concurrent B -> A transfers simultaneously
-        var tasksAtoB = Enumerable.Range(0, operationsPerDirection).Select(async i =>
+        // 20 concurrent A -> B transfers and 20 concurrent B -> A transfers fired together
+        var tasksAtoB = Enumerable.Range(0, batchSize).Select(async i =>
         {
-            var transferService = new TransferService(dbContext, dateTimeProvider, logger);
-            return await transferService.TransferFundsAsync(new TransferRequest(
-                SourceWalletId: walletAId,
-                DestinationWalletId: walletBId,
-                AmountKobo: amountKobo,
-                Reference: $"A-TO-B-{i}"));
+            var service = new TransferService(db, clock, logger);
+            return await service.TransferFundsAsync(new TransferRequest(walletAId, walletBId, transferAmountKobo, $"A-B-{i}"));
         });
 
-        var tasksBtoA = Enumerable.Range(0, operationsPerDirection).Select(async i =>
+        var tasksBtoA = Enumerable.Range(0, batchSize).Select(async i =>
         {
-            var transferService = new TransferService(dbContext, dateTimeProvider, logger);
-            return await transferService.TransferFundsAsync(new TransferRequest(
-                SourceWalletId: walletBId,
-                DestinationWalletId: walletAId,
-                AmountKobo: amountKobo,
-                Reference: $"B-TO-A-{i}"));
+            var service = new TransferService(db, clock, logger);
+            return await service.TransferFundsAsync(new TransferRequest(walletBId, walletAId, transferAmountKobo, $"B-A-{i}"));
         });
 
-        // Execute all 40 concurrent operations without deadlock
         var allResults = await Task.WhenAll(tasksAtoB.Concat(tasksBtoA));
 
-        // Reload fresh state
-        var finalA = await dbContext.Wallets.FindAsync(walletAId);
-        var finalB = await dbContext.Wallets.FindAsync(walletBId);
+        var freshA = await db.Wallets.FindAsync(walletAId);
+        var freshB = await db.Wallets.FindAsync(walletBId);
 
-        // Assert
         allResults.Length.Should().Be(40);
-        finalA!.BalanceKobo.Should().Be(100_000L, "Net balance should remain 100,000 kobo after symmetric transfers");
-        finalB!.BalanceKobo.Should().Be(100_000L, "Net balance should remain 100,000 kobo after symmetric transfers");
-        (finalA.BalanceKobo + finalB.BalanceKobo).Should().Be(200_000L);
+        freshA!.BalanceKobo.Should().Be(100_000L);
+        freshB!.BalanceKobo.Should().Be(100_000L);
     }
 }
