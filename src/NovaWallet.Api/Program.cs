@@ -96,7 +96,7 @@ app.UseSwaggerUI(c =>
 });
 
 // Redirect root URL "/" directly to "/swagger"
-app.MapGet("/", () => Results.Redirect("/swagger"));
+app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 
 app.UseRouting();
 app.UseRateLimiter();
