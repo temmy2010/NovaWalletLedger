@@ -17,6 +17,25 @@ public class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<IdempotencyRecord> IdempotencyRecords => Set<IdempotencyRecord>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 
+    public async Task<Wallet?> GetWalletWithLockAsync(Guid walletId, CancellationToken cancellationToken = default)
+    {
+        if (Database.IsNpgsql())
+        {
+            return await Wallets
+                .FromSqlInterpolated($"SELECT * FROM \"Wallets\" WHERE \"Id\" = {walletId} FOR UPDATE")
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        else if (Database.IsSqlServer())
+        {
+            return await Wallets
+                .FromSqlInterpolated($"SELECT * FROM Wallets WITH (UPDLOCK, ROWLOCK) WHERE Id = {walletId}")
+                .FirstOrDefaultAsync(cancellationToken);
+        }
+
+        return await Wallets.FirstOrDefaultAsync(w => w.Id == walletId, cancellationToken);
+    }
+
     public async Task<IDbTransactionScope> BeginTransactionAsync(CancellationToken cancellationToken = default)
     {
         var efTx = await Database.BeginTransactionAsync(cancellationToken);

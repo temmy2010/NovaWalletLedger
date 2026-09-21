@@ -11,6 +11,7 @@ public interface IApplicationDbContext
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
 
+    Task<Wallet?> GetWalletWithLockAsync(Guid walletId, CancellationToken cancellationToken = default);
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
     Task<IDbTransactionScope> BeginTransactionAsync(CancellationToken cancellationToken = default);
 }

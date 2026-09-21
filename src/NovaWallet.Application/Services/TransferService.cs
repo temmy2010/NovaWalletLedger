@@ -75,13 +75,13 @@ public class TransferService : ITransferService
 
         await using IDbTransactionScope transaction = await _dbContext.BeginTransactionAsync(cancellationToken);
 
-        Wallet? firstWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == lockFirstId, cancellationToken);
+        Wallet? firstWallet = await _dbContext.GetWalletWithLockAsync(lockFirstId, cancellationToken);
         if (firstWallet == null)
         {
             throw new WalletNotFoundException(lockFirstId);
         }
 
-        Wallet? secondWallet = await _dbContext.Wallets.FirstOrDefaultAsync(w => w.Id == lockSecondId, cancellationToken);
+        Wallet? secondWallet = await _dbContext.GetWalletWithLockAsync(lockSecondId, cancellationToken);
         if (secondWallet == null)
         {
             throw new WalletNotFoundException(lockSecondId);
